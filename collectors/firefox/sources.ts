@@ -42,7 +42,7 @@ export const collectSourcesFallback: Collector = async (ctx) => {
   await mapLimit(list, 6, async ([url, kind]) => {
     ctx.detail(`Ressourcen laden ${++done}/${list.length}`);
     const res = await fetchResource(url, ctx.maxBytes);
-    if (!res.bytes) {
+    if (!res.bytes || !res.ok) {
       const reason = res.skippedReason ?? res.error ?? `HTTP ${res.status}`;
       index.push({ url, kind, skipped: reason, size: res.size || undefined });
       if (res.skippedReason) ctx.skipped.push({ path: url, reason, size: res.size });
