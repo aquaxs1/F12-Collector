@@ -89,7 +89,7 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
       detail,
     };
 
-    if (!IS_FIREFOX && selected.some((a) => a !== 'storage')) {
+    if (!IS_FIREFOX && (mode === 'record' || selected.some((a) => a !== 'storage'))) {
       detail('Debugger verbinden');
       cdp = new CdpSession(tabId);
       try {
