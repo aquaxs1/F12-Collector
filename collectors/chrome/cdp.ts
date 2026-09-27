@@ -47,9 +47,20 @@ export class CdpSession {
     }
   }
 
-  async send<T = any>(method: string, params?: Record<string, unknown>): Promise<T> {
+  /** CDP-Befehl senden. Jeder Befehl hat ein Timeout, damit ein hängender Renderer den Export nicht blockiert. */
+  async send<T = any>(method: string, params?: Record<string, unknown>, timeoutMs = 30000): Promise<T> {
     if (!this.attached) throw new Error(`Debugger nicht verbunden${this.detachReason ? ` (${this.detachReason})` : ''}`);
-    return (await browser.debugger.sendCommand(this.target, method, params)) as T;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return (await Promise.race([
+        browser.debugger.sendCommand(this.target, method, params),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`${method}: keine Antwort nach ${Math.round(timeoutMs / 1000)} s`)), timeoutMs);
+        }),
+      ])) as T;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   on(method: string, listener: Listener): () => void {

@@ -2,6 +2,9 @@
 import type { Collector } from '@/lib/context';
 import type { Area } from '@/lib/types';
 import { collectA11yChrome } from './chrome/accessibility';
+import { collectDebuggerChrome } from './chrome/debugger';
+import { collectMemoryChrome } from './chrome/memory';
+import { collectDebuggerFallback } from './firefox/debugger';
 import { collectDomChrome } from './chrome/dom';
 import { collectSourcesChrome } from './chrome/sources';
 import { collectStylesChrome } from './chrome/styles';
@@ -15,6 +18,8 @@ import { collectStorage } from './shared/storage';
 const chromeCollectors: Partial<Record<Area, Collector>> = {
   dom: collectDomChrome,
   sources: collectSourcesChrome,
+  debugger: collectDebuggerChrome,
+  memory: collectMemoryChrome,
   styles: collectStylesChrome,
   accessibility: collectA11yChrome,
   network: collectNetwork,
@@ -24,6 +29,7 @@ const chromeCollectors: Partial<Record<Area, Collector>> = {
 const firefoxCollectors: Partial<Record<Area, Collector>> = {
   dom: collectDomFallback,
   sources: collectSourcesFallback,
+  debugger: collectDebuggerFallback,
   styles: collectStylesFallback,
   accessibility: collectA11yFallback,
   network: collectNetwork,

@@ -13,11 +13,16 @@ export const collectStylesChrome: Collector = async (ctx) => {
   }
   const cdp = ctx.cdp;
   const result: CollectorResult = { files: {}, warnings: [] };
+  if (ctx.shared.pausedEvent) {
+    // CSS.enable antwortet nicht, solange die Seite im Debugger angehalten ist
+    result.warnings.push('Seite ist im Debugger pausiert: Stylesheets und Computed Styles können nicht gelesen werden (verlinkte CSS-Dateien stehen unter sources/).');
+    return result;
+  }
   const headers: any[] = [];
   const off = cdp.on('CSS.styleSheetAdded', (p) => headers.push(p.header));
   try {
     await cdp.send('DOM.enable');
-    await cdp.send('CSS.enable'); // meldet alle vorhandenen Stylesheets per styleSheetAdded
+    await cdp.send('CSS.enable', undefined, 15000); // meldet alle vorhandenen Stylesheets per styleSheetAdded
     await new Promise((r) => setTimeout(r, 300));
   } finally {
     off();

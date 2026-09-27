@@ -41,9 +41,11 @@ export function getAreas(): AreaInfo[] {
     },
     {
       id: 'memory',
-      label: 'Memory (Heap Snapshot)',
-      support: IS_FIREFOX ? 'unavailable' : 'full',
-      note: IS_FIREFOX ? 'in Firefox für Extensions nicht verfügbar' : undefined,
+      label: 'Memory',
+      support: IS_FIREFOX ? 'unavailable' : 'limited',
+      note: IS_FIREFOX
+        ? 'in Firefox für Extensions nicht verfügbar'
+        : 'Heap-Statistik & Memory-Trace – echter .heapsnapshot ist für Extensions gesperrt',
     },
   ];
 }
