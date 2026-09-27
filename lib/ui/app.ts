@@ -39,7 +39,7 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   const persist = () => saveSettings(settings).catch(() => {});
 
   // ---------- Kopf ----------
-  const urlLine = h('div', { class: 'sub' }, '…');
+  const urlLine = h('div', { class: 'sub' }, '');
   const header = h(
     'header',
     {},
@@ -227,11 +227,28 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   const statusMsg = h('div', { class: 'status-msg' });
   const errorBox = h('div', { class: 'errbox hidden' });
   const stepList = h('ul', { class: 'steps' });
-  const progress = h('fieldset', {}, h('legend', {}, 'Fortschritt'), statusMsg, errorBox, stepList);
+  const resultBox = h('div', { class: 'hidden', style: 'margin-top:8px' });
+  const progress = h('fieldset', {}, h('legend', {}, 'Fortschritt'), statusMsg, errorBox, stepList, resultBox);
   const idleHint = h('div', { style: 'color:var(--muted)' }, 'Noch kein Export gestartet. Die Datei landet im Download-Ordner.');
   progress.append(idleHint);
 
-  const footer = h('div', { class: 'footer' }, 'Alles bleibt lokal – kein Upload, keine Telemetrie.');
+  const limited = getAreas().filter((a) => a.support !== 'full');
+  const footer = h(
+    'div',
+    { class: 'footer' },
+    'Alles bleibt lokal – kein Upload, keine Telemetrie.',
+    limited.length
+      ? h(
+          'div',
+          { style: 'margin-top:4px' },
+          `${IS_FIREFOX ? 'Firefox' : 'Chrome'}-Einschränkungen: `,
+          limited.map((a) => `${a.label} (${a.note})`).join(' · '),
+        )
+      : null,
+    opts.kind === 'devtools'
+      ? h('div', { style: 'margin-top:4px' }, 'Tipp: Ein Snapshot aus diesem Panel übernimmt auch die Requests aus dem Netzwerk-Tab (seit Öffnen der DevTools).')
+      : null,
+  );
 
   const left = h('div', {}, permBox, areaBox, privacyBox, settingsBox, buttons);
   const right = h('div', {}, progress, footer);
@@ -243,6 +260,10 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
     const p = browser.runtime.connect({ name: 'f12c-ui' });
     p.onMessage.addListener((msg: any) => {
       if (msg?.type === 'state') render(msg.state);
+      if (msg?.type === 'tab') {
+        urlLine.textContent = msg.url ?? msg.title ?? '';
+        urlLine.title = [msg.title, msg.url].filter(Boolean).join('\n');
+      }
     });
     p.onDisconnect.addListener(() => {
       setTimeout(() => (port = connect()), 500);
@@ -278,6 +299,24 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
     statusMsg.style.color = s.error ? 'var(--err)' : s.running ? '' : s.warningsCount ? 'var(--warn)' : 'var(--ok)';
     errorBox.textContent = s.error ?? '';
     errorBox.classList.toggle('hidden', !s.error);
+    resultBox.classList.toggle('hidden', s.running || (!s.warnings?.length && !s.fileName));
+    resultBox.replaceChildren(
+      ...(s.fileName && !s.running ? [h('div', {}, '📦 ', h('strong', {}, s.fileName), ' → Download-Ordner')] : []),
+      ...(s.skippedCount ? [h('div', { style: 'color:var(--warn)' }, `${s.skippedCount} Datei(en)/Bodies wegen Größenlimit übersprungen (Liste in manifest.json)`)] : []),
+      ...(s.missing?.length
+        ? [h('div', { style: 'margin-top:4px' }, h('strong', {}, 'Fehlt/eingeschränkt: '), s.missing.map((m) => `${m.label}${m.reason ? ` – ${m.reason}` : ''}`).join(' · '))]
+        : []),
+      ...(s.warnings?.length
+        ? [
+            h(
+              'details',
+              { style: 'margin-top:4px' },
+              h('summary', {}, `Hinweise (${s.warningsCount ?? s.warnings.length})`),
+              h('ul', { style: 'margin:4px 0 0;padding-left:18px;font-size:11.5px' }, ...s.warnings.map((w) => h('li', {}, w))),
+            ),
+          ]
+        : []),
+    );
     stepList.replaceChildren(
       ...s.steps.map((st) =>
         h(
@@ -291,16 +330,9 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
     );
   }
 
-  // Tab-URL anzeigen
+  // Tab-URL anzeigen (über den Background – DevTools-Panels haben nicht überall die tabs-API)
   const tabId = await opts.getTabId();
-  if (tabId !== undefined) {
-    try {
-      const tab = await browser.tabs.get(tabId);
-      urlLine.textContent = tab.url ?? '';
-      urlLine.title = tab.url ?? '';
-    } catch {
-      urlLine.textContent = '';
-    }
-  }
+  if (tabId !== undefined) port.postMessage({ type: 'get-tab', tabId });
+  else urlLine.textContent = '';
   void state;
 }

@@ -60,8 +60,8 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
   const files = new Map<string, FileContent>();
   let cdp: CdpSession | null = null;
   let recording: NetworkRecording | null = null;
-  // Chrome: Service Worker während langer Exporte wach halten
-  const keepAlive = IS_FIREFOX ? undefined : setInterval(() => browser.runtime.getPlatformInfo().catch(() => {}), 20000);
+  // Service Worker (Chrome) bzw. Event Page (Firefox) während langer Exporte wach halten
+  const keepAlive = setInterval(() => browser.runtime.getPlatformInfo().catch(() => {}), 20000);
 
   try {
     // ---------- Vorbereitung ----------
@@ -258,6 +258,9 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
     state.finishedAt = new Date().toISOString();
     state.fileName = `${rootName}.zip`;
     state.warningsCount = warnings.length;
+    state.warnings = warnings.slice(0, 100);
+    state.skippedCount = ctx.skipped.length;
+    state.missing = missing.map((m) => ({ label: m.label, reason: m.reason }));
     state.message = warnings.length ? `Fertig – mit ${warnings.length} Hinweis(en), siehe manifest.json` : 'Fertig!';
     emit();
   } catch (e) {
@@ -268,7 +271,7 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
     state.message = 'Export fehlgeschlagen';
     emit();
   } finally {
-    if (keepAlive) clearInterval(keepAlive);
+    clearInterval(keepAlive);
     await recording?.stop().catch(() => {});
     await cdp?.detach();
   }

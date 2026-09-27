@@ -26,6 +26,11 @@ export default defineBackground(() => {
     port.onDisconnect.addListener(() => ports.delete(port));
     port.onMessage.addListener((msg: any) => {
       if (msg?.type === 'get-state') port.postMessage({ type: 'state', state });
+      if (msg?.type === 'get-tab')
+        browser.tabs
+          .get(msg.tabId)
+          .then((t) => port.postMessage({ type: 'tab', url: t.url, title: t.title }))
+          .catch(() => {});
       if (msg?.type === 'start-job') {
         if (state.running) {
           port.postMessage({ type: 'state', state: { ...state, message: 'Es läuft bereits ein Export.' } });

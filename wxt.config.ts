@@ -28,7 +28,7 @@ export default defineConfig({
             browser_specific_settings: {
               gecko: {
                 id: 'f12-collector@local',
-                strict_min_version: '128.0',
+                strict_min_version: '140.0',
                 data_collection_permissions: { required: ['none'] },
               },
             },

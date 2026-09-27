@@ -25,7 +25,8 @@ export function getAreas(): AreaInfo[] {
     {
       id: 'network',
       label: 'Netzwerk (HAR)',
-      support: 'full',
+      support: IS_FIREFOX ? 'limited' : 'full',
+      note: IS_FIREFOX ? 'vereinfachte Timings, ohne Service-Worker-Requests' : undefined,
     },
     { id: 'styles', label: 'Styles', support: 'full' },
     {

@@ -2,6 +2,7 @@
 import { collectDebuggerFallback, writeScriptLists } from '@/collectors/firefox/debugger';
 import type { Collector, ScriptRecord } from '@/lib/context';
 import { errMsg } from '@/lib/fetcher';
+import { REDACTED, isSensitiveKey, redactDeep } from '@/lib/redact';
 import type { CollectorResult } from '@/lib/types';
 import type { CdpSession } from './cdp';
 import { isExtensionUrl } from './sources';
@@ -82,7 +83,14 @@ export const collectDebuggerChrome: Collector = async (ctx) => {
       if (s.type === 'global') scope.note = 'globaler Scope nicht exportiert (zu groß)';
       else if (s.object?.objectId) {
         try {
-          Object.assign(scope, await scopeVariables(cdp, s.object.objectId));
+          const vars = await scopeVariables(cdp, s.object.objectId);
+          if (ctx.settings.redact) {
+            for (const [name, v] of Object.entries(vars.variables))
+              if (isSensitiveKey(name) && v && typeof v === 'object' && ('value' in v || 'description' in v))
+                vars.variables[name] = { ...(v as object), value: REDACTED, description: undefined, preview: undefined };
+            vars.variables = redactDeep(vars.variables) as Record<string, unknown>;
+          }
+          Object.assign(scope, vars);
         } catch (e) {
           scope.error = errMsg(e);
         }

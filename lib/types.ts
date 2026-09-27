@@ -64,6 +64,11 @@ export interface JobState {
   finishedAt?: string;
   fileName?: string;
   warningsCount?: number;
+  /** Hinweise für die Anzeige im UI (vollständig in manifest.json) */
+  warnings?: string[];
+  skippedCount?: number;
+  /** Bereiche, die in diesem Browser fehlen oder eingeschränkt sind */
+  missing?: { label: string; reason?: string }[];
 }
 
 /** Daten, die das DevTools-Panel zusätzlich mitliefern kann. */
@@ -82,7 +87,7 @@ export interface StartJobMessage {
   devtools?: DevtoolsExtras;
 }
 
-export type UiToBackground = StartJobMessage | { type: 'get-state' };
+export type UiToBackground = StartJobMessage | { type: 'get-state' } | { type: 'get-tab'; tabId: number };
 
 export type BackgroundToUi = { type: 'state'; state: JobState };
 
