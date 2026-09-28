@@ -8,7 +8,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "dev": "npm run icons && wxt",
     "dev:firefox": "npm run icons && wxt -b firefox",
-    "build": "npm run icons && wxt build && wxt build -b firefox",
+    "build": "npm run icons && wxt build && wxt build -b firefox && node scripts/copy-builds.mjs",
     "build:chrome": "npm run icons && wxt build",
     "build:firefox": "npm run icons && wxt build -b firefox",
     "zip": "npm run icons && wxt zip && wxt zip -b firefox",

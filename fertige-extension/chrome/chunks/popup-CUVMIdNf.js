@@ -1,0 +1,1 @@
+import{t as e}from"./browser-DKnVyUgM.js";import{t}from"./app-CuP-zq0h.js";t(document.getElementById(`app`),{kind:`popup`,async getTabId(){let[t]=await e.tabs.query({active:!0,currentWindow:!0});return t?.id}});
