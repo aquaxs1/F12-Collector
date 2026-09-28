@@ -27,20 +27,26 @@
 
 ## Installation & Test
 
-Voraussetzung: [Node.js](https://nodejs.org) ≥ 20.
+> **Wichtig:** Nicht den Hauptordner des Repos laden (dort gibt es keine `manifest.json` → Fehler
+> *„Manifest-Datei fehlt oder ist nicht lesbar“*). Geladen wird immer ein Ordner, der direkt eine
+> `manifest.json` enthält.
+
+**Ohne Node.js (empfohlen):** Repo als ZIP herunterladen und entpacken. Die fertig gebauten Extensions liegen in
+- `fertige-extension/chrome` – für Chrome, Edge, Brave …
+- `fertige-extension/firefox` – für Firefox
+
+**Selbst bauen** (optional, [Node.js](https://nodejs.org) ≥ 20):
 
 ```bash
 npm install
-npm run build          # baut Chrome UND Firefox
+npm run build          # baut Chrome UND Firefox und aktualisiert fertige-extension/
 ```
-
-Danach liegen die fertigen Extensions in `.output/chrome-mv3/` und `.output/firefox-mv3/`.
 
 ### Chrome (oder Edge, Brave …)
 
 1. `chrome://extensions` öffnen
 2. Oben rechts **Entwicklermodus** einschalten
-3. **Entpackte Erweiterung laden** → Ordner `.output/chrome-mv3` auswählen
+3. **Entpackte Erweiterung laden** → Ordner `fertige-extension/chrome` auswählen (der Ordner, in dem `manifest.json` liegt)
 4. Das F12-Collector-Icon an die Symbolleiste anpinnen (Puzzle-Symbol → Pin)
 
 **Testen:**
@@ -57,7 +63,7 @@ Danach liegen die fertigen Extensions in `.output/chrome-mv3/` und `.output/fire
 ### Firefox (ab Version 140)
 
 1. `about:debugging#/runtime/this-firefox` öffnen
-2. **Temporäres Add-on laden …** → Datei `.output/firefox-mv3/manifest.json` auswählen
+2. **Temporäres Add-on laden …** → Datei `fertige-extension/firefox/manifest.json` auswählen
 3. **Wichtig:** Firefox erteilt bei Manifest V3 den Zugriff auf Websites nicht automatisch.
    Popup öffnen → roten Button **„Zugriff auf alle Websites erlauben“** klicken
    (alternativ `about:addons` → F12 Collector → *Berechtigungen* → „Auf Ihre Daten für alle Websites zugreifen“)

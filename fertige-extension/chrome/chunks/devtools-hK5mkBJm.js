@@ -1,0 +1,1 @@
+import{t as e}from"./browser-DKnVyUgM.js";e.devtools.panels.create(`F12 Collector`,`/icon/32.png`,`/devtools-panel.html`);
