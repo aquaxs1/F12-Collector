@@ -1,4 +1,4 @@
-// Auswahl der Collector je Browser. Chrome nutzt CDP (chrome.debugger), Firefox die Fallbacks.
+// Collector selection per browser. Chrome uses CDP (chrome.debugger), Firefox uses the fallbacks.
 import type { Collector } from '@/lib/context';
 import type { Area } from '@/lib/types';
 import { collectA11yChrome } from './chrome/accessibility';

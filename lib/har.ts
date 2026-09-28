@@ -1,4 +1,4 @@
-// HAR 1.2 – gemeinsame Hilfsfunktionen (Aufbau, Redaction, Fallback aus Resource Timing).
+// HAR 1.2 – shared helpers (building, redaction, fallback from Resource Timing).
 import { browser } from 'wxt/browser';
 import { BROWSER_NAME } from './areas';
 import type { JobContext } from './context';
@@ -18,7 +18,7 @@ export function harBrowser() {
   return { name: m?.[1] ?? BROWSER_NAME, version: m?.[2] ?? '' };
 }
 
-/** CDP-Header-Objekt → HAR-Header-Array (mehrere Werte sind durch \n getrennt). */
+/** CDP header object → HAR header array (multiple values are separated by \n). */
 export function headersFromObject(obj: Record<string, string> | undefined): HarHeader[] {
   const out: HarHeader[] = [];
   if (!obj) return out;
@@ -96,7 +96,7 @@ export function emptyHar(ctx: JobContext, pages: any[] = []) {
   };
 }
 
-/** Sensible Header, Cookies und Tokens im HAR schwärzen. */
+/** Redact sensitive headers, cookies and tokens in the HAR. */
 export function redactHar(har: any) {
   for (const e of har?.log?.entries ?? []) {
     for (const part of [e.request, e.response]) {
@@ -110,7 +110,7 @@ export function redactHar(har: any) {
     if (e.request?.postData?.text) e.request.postData.text = redactTokensInString(e.request.postData.text);
     for (const p of e.request?.postData?.params ?? []) if (typeof p.value === 'string') p.value = redactTokensInString(p.value);
   }
-  har.log.comment = [har.log.comment, 'Redaction aktiv: Cookie-/Auth-Header und Token-Muster wurden durch [REDACTED] ersetzt.'].filter(Boolean).join(' ');
+  har.log.comment = [har.log.comment, 'Redaction enabled: cookie/auth headers and token patterns were replaced with [REDACTED].'].filter(Boolean).join(' ');
   return har;
 }
 
@@ -130,7 +130,7 @@ const TYPE_MAP: Record<string, string> = {
   font: 'font',
 };
 
-/** Fallback ohne Aufzeichnung: HAR aus der Resource-Timing-API (ohne Header und Bodies). */
+/** Fallback without recording: HAR from the Resource Timing API (no headers or bodies). */
 export function harFromPerformance(ctx: JobContext) {
   const har = emptyHar(ctx);
   const top = ctx.frames.find((f) => f.frameId === 0) ?? ctx.frames[0];
@@ -150,7 +150,7 @@ export function harFromPerformance(ctx: JobContext) {
       request: { method: 'GET', url: p.name, httpVersion: httpVersion(p.nextHopProtocol), cookies: [], headers: [], queryString: queryStringOf(p.name), headersSize: -1, bodySize: -1 },
       response: {
         status,
-        statusText: status ? '' : '(unbekannt – nur Resource Timing)',
+        statusText: status ? '' : '(unknown – Resource Timing only)',
         httpVersion: httpVersion(p.nextHopProtocol),
         cookies: [],
         headers: [],
@@ -166,6 +166,6 @@ export function harFromPerformance(ctx: JobContext) {
     });
   }
   har.log.entries.sort((a: any, b: any) => a.startedDateTime.localeCompare(b.startedDateTime));
-  har.log.comment = 'Erzeugt aus der Resource-Timing-API (Snapshot ohne Aufzeichnung): keine Header, keine Bodies, Methode immer GET angenommen.';
+  har.log.comment = 'Generated from the Resource Timing API (snapshot without recording): no headers, no bodies, method assumed to be GET.';
   return har;
 }

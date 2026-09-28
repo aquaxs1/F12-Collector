@@ -1,193 +1,202 @@
 <p align="center">
-  <img src="logo.png" alt="F12 Collector Logo" width="160">
+  <img src="public/logo-ui.png" alt="F12 Collector logo" width="140">
 </p>
 
 <h1 align="center">F12 Collector</h1>
 
 <p align="center">
-  Browser-Extension für <b>Chrome</b> und <b>Firefox</b>, die auf Knopfdruck alles exportiert,
-  was man in den DevTools (F12) einer Website sieht – als ZIP-Archiv, komplett lokal.
+  A browser extension for <b>Chrome</b> and <b>Firefox</b> that exports everything you see in a
+  website's DevTools (F12) with one click – as a ZIP archive, entirely on your machine.
 </p>
 
 ---
 
-## Was wird exportiert?
+## What gets exported?
 
-| Bereich | Chrome | Firefox |
+| Area | Chrome | Firefox |
 |---|---|---|
-| **DOM (Inspektor)** | `DOM.getDocument` (depth -1, pierce) → HTML inkl. offener *und geschlossener* Shadow Roots (als `<template shadowrootmode>`) und iframes | Content Script: DOM inkl. Shadow Roots (`openOrClosedShadowRoot`), alle Frames |
-| **Quellcode** | alle Ressourcen (`Page.getResourceContent`) + alle geparsten Scripts (`Debugger.getScriptSource`, inkl. Inline & `eval`) | Ressourcen per `fetch` neu geladen (bevorzugt aus dem Cache), Inline-Scripts/-Styles aus dem DOM |
-| **Source Maps** | `sourceMappingURL` (auch `data:`-URLs, Index-Maps) auflösen → Originaldateien in `sources/original/` | gleich |
-| **Debugger** | Script-Liste, Source Maps, bei pausierter Seite **Call Stack + Scope-Variablen** | Script-Liste & Source Maps |
-| **Netzwerk** | CDP `Network.*` → HAR 1.2 inkl. Bodies, Redirects, Timings, echte (Extra-Info-)Header | `webRequest` + `filterResponseData` → HAR 1.2 inkl. Bodies |
-| **Styles** | alle Stylesheets (`CSS.getStyleSheetText`), Computed Styles | `document.styleSheets` (Cross-Origin-Sheets neu geladen), Computed Styles |
-| **Webspeicher** | Cookies (inkl. HttpOnly & partitioniert), local/sessionStorage, IndexedDB (alle DBs/Stores), Cache Storage | gleich (inkl. Container-Cookie-Store) |
-| **Barrierefreiheit** | echter Accessibility Tree (`Accessibility.getFullAXTree`) | Annäherung: Rollen, ARIA, Zustände, zugängliche Namen |
-| **Memory** | Heap-Nutzung, Objekt-Statistik je Konstruktor, Memory-Trace (siehe [Einschränkungen](#einschränkungen)) | nicht möglich |
+| **DOM (Inspector)** | `DOM.getDocument` (depth -1, pierce) → HTML incl. open *and closed* shadow roots (as `<template shadowrootmode>`) and iframes | Content script: DOM incl. shadow roots (`openOrClosedShadowRoot`), all frames |
+| **Sources** | all resources (`Page.getResourceContent`) + all parsed scripts (`Debugger.getScriptSource`, incl. inline & `eval`) | resources re-downloaded via `fetch` (preferably from the cache), inline scripts/styles from the DOM |
+| **Source maps** | resolves `sourceMappingURL` (incl. `data:` URLs, index maps) → original files in `sources/original/` | same |
+| **Debugger** | script list, source maps and, if the page is paused, the **call stack + scope variables** | script list & source maps |
+| **Network** | CDP `Network.*` → HAR 1.2 incl. bodies, redirects, timings, real (extra-info) headers | `webRequest` + `filterResponseData` → HAR 1.2 incl. bodies |
+| **Styles** | all stylesheets (`CSS.getStyleSheetText`), computed styles | `document.styleSheets` (cross-origin sheets re-downloaded), computed styles |
+| **Storage** | cookies (incl. HttpOnly & partitioned), local/sessionStorage, IndexedDB (all DBs/stores), Cache Storage | same (incl. container cookie stores) |
+| **Accessibility** | the real accessibility tree (`Accessibility.getFullAXTree`) | approximation: roles, ARIA, states, accessible names |
+| **Memory** | heap usage, object counts per constructor, memory trace (see [Limitations](#limitations)) | not possible |
 
-## Installation & Test
+## Installation & testing
 
-> **Wichtig:** Nicht den Hauptordner des Repos laden (dort gibt es keine `manifest.json` → Fehler
-> *„Manifest-Datei fehlt oder ist nicht lesbar“*). Geladen wird immer ein Ordner, der direkt eine
-> `manifest.json` enthält.
+> **Important:** do not load the repository's root folder – it has no `manifest.json`, and Chrome
+> reports *"Manifest file is missing or unreadable"*. Always load a folder that directly contains a
+> `manifest.json`.
 
-**Ohne Node.js (empfohlen):** Repo als ZIP herunterladen und entpacken. Die fertig gebauten Extensions liegen in
-- `fertige-extension/chrome` – für Chrome, Edge, Brave …
-- `fertige-extension/firefox` – für Firefox
+**Without Node.js (recommended):** download the repository as a ZIP and unpack it. The ready-to-use
+extensions are in
+- `prebuilt/chrome` – for Chrome, Edge, Brave …
+- `prebuilt/firefox` – for Firefox
 
-**Selbst bauen** (optional, [Node.js](https://nodejs.org) ≥ 20):
+**Build it yourself** (optional, [Node.js](https://nodejs.org) ≥ 20):
 
 ```bash
 npm install
-npm run build          # baut Chrome UND Firefox und aktualisiert fertige-extension/
+npm run build          # builds Chrome AND Firefox and updates prebuilt/
 ```
 
-### Chrome (oder Edge, Brave …)
+### Chrome (or Edge, Brave …)
 
-1. `chrome://extensions` öffnen
-2. Oben rechts **Entwicklermodus** einschalten
-3. **Entpackte Erweiterung laden** → Ordner `fertige-extension/chrome` auswählen (der Ordner, in dem `manifest.json` liegt)
-4. Das F12-Collector-Icon an die Symbolleiste anpinnen (Puzzle-Symbol → Pin)
+1. Open `chrome://extensions`
+2. Turn on **Developer mode** (top right)
+3. **Load unpacked** → select the `prebuilt/chrome` folder (the folder that contains `manifest.json`)
+4. Pin the F12 Collector icon to the toolbar (puzzle icon → pin)
 
-**Testen:**
+**Testing:**
 
-1. Eine Seite öffnen, z. B. <https://de.wikipedia.org/wiki/Katze>
-2. **Popup:** auf das Icon klicken → **„Snapshot erstellen“** → das ZIP landet im Download-Ordner
-3. **DevTools:** F12 drücken → Tab **„F12 Collector“** (ggf. hinter `»`) → dieselben Optionen
-4. **„Aufzeichnen & neu laden“** klicken: die Seite wird neu geladen, alle Requests inkl. Bodies landen in `network.har`
-5. `network.har` prüfen: DevTools → Tab *Netzwerk* → Symbol „HAR importieren“ (Pfeil nach oben) → Datei wählen
-6. Debugger-Zustand testen: in DevTools unter *Quellen* einen Breakpoint setzen, Seite anhalten lassen, dann im Tab *F12 Collector* „Snapshot erstellen“ → `debugger/paused-state.json`
+1. Open a page, e.g. <https://en.wikipedia.org/wiki/Cat>
+2. **Popup:** click the icon → **"Take snapshot"** → the ZIP is saved to your downloads folder
+3. **DevTools:** press F12 → **"F12 Collector"** tab (possibly behind `»`) → same options
+4. Click **"Record & reload"**: the page reloads and all requests, including bodies, end up in `network.har`
+5. Check `network.har`: DevTools → *Network* tab → "Import HAR file" (up-arrow icon) → select the file
+6. Test the debugger state: set a breakpoint in DevTools under *Sources*, let the page pause, then click "Take snapshot" in the *F12 Collector* tab → `debugger/paused-state.json`
 
-> Während des Exports zeigt Chrome oben den Hinweis *„F12 Collector hat begonnen, diesen Browser zu debuggen“*. Das ist normal (chrome.debugger) und verschwindet danach automatisch – der Debugger wird immer wieder getrennt, auch im Fehlerfall.
+> During an export Chrome shows the banner *"F12 Collector started debugging this browser"*. This is
+> expected (chrome.debugger) and disappears automatically afterwards – the debugger is always
+> detached, even when something fails.
 
-### Firefox (ab Version 140)
+### Firefox (version 140 or later)
 
-1. `about:debugging#/runtime/this-firefox` öffnen
-2. **Temporäres Add-on laden …** → Datei `fertige-extension/firefox/manifest.json` auswählen
-3. **Wichtig:** Firefox erteilt bei Manifest V3 den Zugriff auf Websites nicht automatisch.
-   Popup öffnen → roten Button **„Zugriff auf alle Websites erlauben“** klicken
-   (alternativ `about:addons` → F12 Collector → *Berechtigungen* → „Auf Ihre Daten für alle Websites zugreifen“)
-4. Testen wie bei Chrome (Popup oder F12 → Tab „F12 Collector“)
+1. Open `about:debugging#/runtime/this-firefox`
+2. **Load Temporary Add-on …** → select `prebuilt/firefox/manifest.json`
+3. **Important:** with Manifest V3, Firefox does not grant access to websites automatically.
+   Open the popup → click the red **"Allow access to all websites"** button
+   (or `about:addons` → F12 Collector → *Permissions* → "Access your data for all websites")
+4. Test as in Chrome (popup, or F12 → "F12 Collector" tab)
 
-Temporäre Add-ons verschwinden beim Beenden von Firefox. Für eine dauerhafte Installation: `npm run zip` und die ZIP-Datei aus `.output/` bei [addons.mozilla.org](https://addons.mozilla.org/developers/) (auch „nicht gelistet“) signieren lassen.
+Temporary add-ons disappear when Firefox quits. For a permanent installation, run `npm run zip` and
+have the ZIP from `.output/` signed on [addons.mozilla.org](https://addons.mozilla.org/developers/)
+(an "unlisted" add-on is fine).
 
-### Entwicklung
+### Development
 
 ```bash
-npm run dev            # Chrome mit Hot-Reload (öffnet einen Test-Browser)
-npm run dev:firefox    # Firefox mit Hot-Reload
-npm run compile        # TypeScript prüfen
-npm run zip            # ZIPs für die Stores bauen
+npm run dev            # Chrome with hot reload (opens a test browser)
+npm run dev:firefox    # Firefox with hot reload
+npm run compile        # type-check with TypeScript
+npm run zip            # build ZIPs for the stores
 ```
 
-Die Icons (16/32/48/128 px) werden per `npm run icons` automatisch aus `logo.png` erzeugt (läuft vor `dev`/`build` mit, `logo.png` selbst wird nie verändert).
+The icons (16/32/48/128 px) and the UI logo are generated automatically from
+`f12collector-logo.png` by `npm run icons` (runs as part of `dev`/`build`). The logo is trimmed to
+its content and placed on a rounded black tile so it stays legible at 16 px; the source file itself
+is never modified.
 
-## Bedienung
+## Usage
 
-- **Bereiche**: Checkbox pro Bereich; nicht verfügbare Bereiche sind ausgegraut und markiert („nicht verfügbar“ / „eingeschränkt“).
-- **Snapshot erstellen**: exportiert den aktuellen Zustand, ohne die Seite neu zu laden.
-- **Aufzeichnen & neu laden**: aktiviert zuerst Netzwerk-Mitschnitt (und in Chrome die Script-Erfassung), lädt die Seite ohne Cache neu, wartet bis das Netzwerk ruhig ist (Standard 2 s ohne Request, max. 30 s) und macht dann den Snapshot.
-- **Fortschritt**: jeder Schritt mit Status (läuft / fertig / Hinweis / Fehler), danach Dateiname, fehlende Bereiche und alle Hinweise.
-- **Einstellungen** (werden gespeichert, ebenso die gewählten Bereiche): max. Dateigröße, Response-Bodies ja/nein, Computed Styles (nur sichtbare / alle / keine, Limit, nur Abweichungen vom Standard), Ruhezeit & Maximaldauer der Aufzeichnung, IndexedDB-Limit, Source-Map-Limit.
+- **Areas**: one checkbox per area; unavailable areas are greyed out and marked ("unavailable" / "limited").
+- **Take snapshot**: exports the current state without reloading the page.
+- **Record & reload**: first starts network recording (and script capture in Chrome), reloads the page without cache, waits until the network is idle (default: 2 s without requests, max. 30 s) and then takes the snapshot.
+- **Progress**: every step with its status (running / done / note / error), followed by the file name, missing areas and all notes.
+- **Settings** (saved, as are the selected areas): max. file size, response bodies yes/no, computed styles (visible only / all / none, limit, only values that differ from defaults), idle time & max. recording duration, IndexedDB limit, source map limit.
 
-## Export-Format
+## Export format
 
 ```
-f12-collector_<domain>_<zeitstempel>/
+f12-collector_<domain>_<timestamp>/
 ├── dom/
-│   ├── index.html              Hauptdokument (Shadow DOM als <template shadowrootmode>)
+│   ├── index.html              main document (shadow DOM as <template shadowrootmode>)
 │   ├── frames/                 iframes (+ index.json)
 │   └── shadow-roots.json
 ├── sources/
-│   ├── <domain>/<pfad>         alle Ressourcen, nach Domain/Pfad sortiert
-│   ├── _inline/                Inline-Scripts/-Styles je Seite
-│   ├── _dynamic/               per eval erzeugte Scripts (Chrome)
-│   ├── sourcemaps/             .map-Dateien (+ index.json)
-│   ├── original/               aus Source Maps rekonstruierte Originaldateien
+│   ├── <domain>/<path>         all resources, sorted by domain/path
+│   ├── _inline/                inline scripts/styles per page
+│   ├── _dynamic/               scripts created via eval (Chrome)
+│   ├── sourcemaps/             .map files (+ index.json)
+│   ├── original/               original files reconstructed from source maps
 │   └── index.json
 ├── debugger/                   scripts.json, sourcemaps.json, paused-state.json
-├── network.har                 HAR 1.2 – in Chrome/Firefox-DevTools importierbar
+├── network.har                 HAR 1.2 – importable in Chrome/Firefox DevTools
 ├── styles/
-│   ├── stylesheets/            alle Stylesheets (+ index.json)
+│   ├── stylesheets/            all stylesheets (+ index.json)
 │   └── computed-styles.json
 ├── storage/
 │   ├── cookies.json, local.json, session.json
 │   ├── indexeddb/<origin>/<db>.json
 │   └── cache/<origin>/<cache>/index.json (+ files/)
 ├── accessibility.json
-├── memory/                     (nur Chrome) heap-usage.json, object-counts.json, memory-infra.trace.json
-└── manifest.json               URL, Browser, Zeitpunkt, Version, aktive Bereiche, Status je Bereich,
-                                Warnungen, übersprungene Dateien, was fehlt
+├── memory/                     (Chrome only) heap-usage.json, object-counts.json, memory-infra.trace.json, README.txt
+└── manifest.json               URL, browser, time, version, active areas, status per area,
+                                warnings, skipped files, what is missing
 ```
 
-## Sicherheit & Datenschutz
+## Security & privacy
 
-- **Keine Daten verlassen den Rechner.** Kein Upload, keine Telemetrie, keine externen Server. Das ZIP wird lokal erzeugt und über die Download-API gespeichert.
-- **Redaction ist standardmäßig AN** und ersetzt durch `[REDACTED]`:
-  - alle Cookie-Werte (`storage/cookies.json`, Cookies im HAR)
-  - Header `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-CSRF-Token`, `X-XSRF-Token`, `X-API-Key`, `X-Auth-Token`
-  - Storage-Einträge (local/sessionStorage, IndexedDB), deren Key nach Token aussieht (`token`, `auth`, `session`, `secret`, `password`, `api_key`, `jwt`, `csrf` …)
-  - JWT-Muster (`eyJ….….…`) und `Bearer …` in beliebigen Werten (Storage, Header, POST-Bodies)
-  - Scope-Variablen mit solchen Namen im Debugger-Export
-- Abschaltbar über die Checkbox „Sensible Daten schwärzen“ – dann erscheint ein deutlicher Warnhinweis, und `manifest.json` vermerkt, dass der Export ungeschwärzt ist.
-- Nicht geschwärzt werden: Response-Bodies und Quellcode (können selbst Tokens enthalten), URLs/Query-Parameter.
+- **No data leaves your machine.** No uploads, no telemetry, no external servers. The ZIP is created locally and saved via the downloads API.
+- **Redaction is ON by default** and replaces the following with `[REDACTED]`:
+  - all cookie values (`storage/cookies.json`, cookies in the HAR)
+  - the headers `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-CSRF-Token`, `X-XSRF-Token`, `X-API-Key`, `X-Auth-Token`
+  - storage entries (local/sessionStorage, IndexedDB) whose key looks like a token (`token`, `auth`, `session`, `secret`, `password`, `api_key`, `jwt`, `csrf` …)
+  - JWT patterns (`eyJ….….…`) and `Bearer …` in any value (storage, headers, POST bodies)
+  - scope variables with such names in the debugger export
+- It can be turned off with the "Redact sensitive data" checkbox – a clear warning is shown, and `manifest.json` records that the export is unredacted.
+- Not redacted: response bodies and source code (which may contain tokens themselves), URLs/query parameters.
 
-## Robustheit
+## Robustness
 
-- Jeder Collector läuft **isoliert** mit eigenem Timeout: ein Fehler landet als Warnung in `manifest.json`, der Rest wird trotzdem exportiert.
-- Jeder CDP-Befehl hat ein Timeout; der **Debugger wird immer getrennt** (`finally`), auch bei Fehlern.
-- **Pausierte Seite** (Breakpoint): wird erkannt; Schritte, die dann nicht laufen können (Content Scripts, CSS-Domain), werden mit Hinweis übersprungen statt zu hängen.
-- **Größenlimit** pro Datei/Body (Standard 20 MB, einstellbar). Übersprungene Dateien stehen in `manifest.json → skippedFiles`.
-- Tabs, die schon vor der Installation offen waren, bekommen das Content Script automatisch nachinjiziert.
+- Every collector runs **in isolation** with its own timeout: an error becomes a warning in `manifest.json`, and everything else is still exported.
+- Every CDP command has a timeout; the **debugger is always detached** (`finally`), even on errors.
+- **Paused page** (breakpoint): detected automatically; steps that cannot run in that state (content scripts, CSS domain) are skipped with a note instead of hanging.
+- **Size limit** per file/body (default 20 MB, configurable). Skipped files are listed in `manifest.json → skippedFiles`.
+- Tabs that were already open before installation get the content script injected automatically.
 
-## Einschränkungen
+## Limitations
 
-### Allgemein
-- Browser-interne Seiten (`chrome://`, `about:`, Web Store / addons.mozilla.org) sind für Extensions gesperrt.
-- **Snapshot ohne Aufzeichnung**: Browser geben vergangene Requests nicht heraus. Aus dem **Popup** enthält `network.har` dann nur Resource-Timing-Daten (URLs, Zeiten, Größen – keine Header/Bodies). Aus dem **DevTools-Panel** wird `devtools.network.getHAR()` übernommen (Requests seit Öffnen der DevTools) plus die Bodies, die das Panel seit dem Öffnen gepuffert hat. Vollständig: **„Aufzeichnen & neu laden“**.
-- Computed Styles werden bewusst begrenzt (Standard: nur sichtbare Elemente, max. 300 pro Frame, nur Abweichungen vom Browser-Standard). Für den Standardvergleich wird kurzzeitig ein unsichtbares leeres iframe in die Seite eingefügt.
+### General
+- Internal browser pages (`chrome://`, `about:`, Web Store / addons.mozilla.org) are off-limits for extensions.
+- **Snapshot without recording**: browsers do not hand out past requests. From the **popup**, `network.har` then only contains Resource Timing data (URLs, timings, sizes – no headers/bodies). From the **DevTools panel**, `devtools.network.getHAR()` is used (requests since DevTools was opened) plus the bodies the panel has buffered since it was opened. For complete data use **"Record & reload"**.
+- Computed styles are intentionally limited (default: visible elements only, max. 300 per frame, only values that differ from browser defaults). For the default comparison an invisible empty iframe is briefly inserted into the page.
 
 ### Chrome
-- **Kein echter Heap Snapshot (`.heapsnapshot`)**: Chrome erlaubt Extensions über `chrome.debugger` nur eine feste Liste von DevTools-Protocol-Domains. `HeapProfiler` und `Memory` gehören nicht dazu (Antwort: *„'HeapProfiler.enable' wasn't found“*; auch der Umweg über `Target.attachToTarget` ist gesperrt und `--enable-unsafe-extension-debugging` hebt das nicht auf – getestet mit Chromium 141). Der Bereich *Memory* exportiert deshalb, was über erlaubte Domains geht:
-  - `memory/heap-usage.json` – belegter/gesamter JS-Heap
-  - `memory/object-counts.json` – Anzahl lebender Objekte je Konstruktor (`Runtime.queryObjects`, entspricht grob der Summary-Ansicht eines Heap Snapshots)
-  - `memory/memory-infra.trace.json` – detaillierter Memory-Dump via Tracing, lokal in <https://ui.perfetto.dev> öffnbar
-  - Einen echten Heap Snapshot erstellt man manuell: DevTools → *Memory* → *Take snapshot* → Rechtsklick → *Save…*
-- Cross-Origin-iframes in eigenen Prozessen (Site Isolation) sind im CDP-DOM nicht enthalten; sie kommen aus dem Content Script (`dom/frames/`, Quelle in `index.json`).
-- Ist die Seite im Debugger angehalten, fehlen Webspeicher-Inhalte (außer Cookies), Styles und Frame-Inhalte, weil keine Scripts in der Seite laufen können.
+- **No real heap snapshot (`.heapsnapshot`)**: Chrome only allows extensions a fixed list of DevTools Protocol domains via `chrome.debugger`. `HeapProfiler` and `Memory` are not among them (response: *"'HeapProfiler.enable' wasn't found"*; the detour via `Target.attachToTarget` is blocked too, and `--enable-unsafe-extension-debugging` does not lift it – tested with Chromium 141). The *Memory* area therefore exports what the allowed domains provide:
+  - `memory/heap-usage.json` – used/total JS heap
+  - `memory/object-counts.json` – number of live objects per constructor (`Runtime.queryObjects`, roughly the Summary view of a heap snapshot)
+  - `memory/memory-infra.trace.json` – detailed memory dump via Tracing, can be opened locally in <https://ui.perfetto.dev>
+  - To take a real heap snapshot manually: DevTools → *Memory* → *Take snapshot* → right-click → *Save…*
+- Cross-origin iframes in separate processes (site isolation) are not part of the CDP DOM; they come from the content script (`dom/frames/`, source noted in `index.json`).
+- If the page is paused in the debugger, storage contents (except cookies), styles and frame contents are missing, because no scripts can run in the page.
 
 ### Firefox
-- **Memory**: nicht möglich – Firefox bietet Extensions keinen Zugriff auf Heap-Daten.
-- **Debugger**: nur Script-Liste und Source Maps. Call Stack, Scope-Variablen und Breakpoints sind für Extensions nicht zugänglich.
-- **Barrierefreiheit**: nur Annäherung (Rollen explizit/implizit, ARIA-Attribute, Zustände, vereinfachte Namensberechnung). Firefox hat keine Accessibility-API für Extensions.
-- **Quellcode**: wird per `fetch` neu geladen (Inhalt kann abweichen, falls der Server inzwischen anderes liefert); per `eval`/`new Function` erzeugter Code fehlt. API-Aufrufe (fetch/XHR) werden aus Sicherheitsgründen *nicht* erneut ausgeführt.
-- **Netzwerk**: Timings vereinfacht (kein DNS/Connect/SSL), Requests von Service Workern fehlen, Medien-Streams/WebSockets ohne Body.
-- **Shadow DOM**: geschlossene Shadow Roots über `openOrClosedShadowRoot`, adoptierte Stylesheets ohne Quell-URL.
-- Host-Berechtigung muss bei Manifest V3 einmalig bestätigt werden (siehe Installation).
+- **Memory**: not possible – Firefox gives extensions no access to heap data.
+- **Debugger**: script list and source maps only. Call stack, scope variables and breakpoints are not accessible to extensions.
+- **Accessibility**: approximation only (explicit/implicit roles, ARIA attributes, states, simplified name computation). Firefox has no accessibility API for extensions.
+- **Sources**: re-downloaded via `fetch` (content may differ if the server now returns something else); code created via `eval`/`new Function` is missing. API calls (fetch/XHR) are deliberately *not* repeated.
+- **Network**: simplified timings (no DNS/connect/SSL), service worker requests are missing, media streams/WebSockets have no body.
+- **Shadow DOM**: closed shadow roots via `openOrClosedShadowRoot`, adopted stylesheets without a source URL.
+- With Manifest V3 the host permission has to be granted once (see installation).
 
-## Getroffene Entscheidungen
+## Design decisions
 
-- **UI in Vanilla TypeScript** (kein Framework) – klein, schnell, eine gemeinsame Oberfläche (`lib/ui/app.ts`) für Popup und DevTools-Panel.
-- **Icons per Script mit `sharp`** (`scripts/generate-icons.mjs`) statt `@wxt-dev/auto-icons`, damit zusätzlich ein 256-px-Logo für die UI entsteht; die generierten PNGs sind eingecheckt.
-- **Zusätzliche Berechtigungen** gegenüber der Vorgabe:
-  - `scripting` – Content Script in allen Frames aufrufen (mit Frame-ID) und in bereits offene Tabs nachladen
-  - `offscreen` (nur Chrome) – der Service Worker kann keine Blob-URLs erzeugen; ein Offscreen-Dokument stellt die ZIP-Datei für den Download bereit (Fallback: `data:`-URL)
-  - `webRequestBlocking` (nur Firefox) – nötig für `filterResponseData` (Response-Bodies)
-- **Zusätzliche Ordner im Export**: `debugger/` (Script-Liste, Source Maps, Pausenzustand) und `memory/` (statt `memory.heapsnapshot`, siehe oben).
-- **Größenlimit** gilt für Ressourcen (`sources/`, `styles/stylesheets/`, `storage/cache/`, `dom/frames/`) und Response-Bodies im HAR – nicht für Kern-Dateien wie `dom/index.html`, `network.har` oder `accessibility.json`.
-- **Chrome-Fallbacks**: kann `chrome.debugger` nicht verbunden werden (z. B. weil eine andere Extension debuggt), nutzt Chrome automatisch die Content-Script-Varianten (dieselben wie in Firefox) und vermerkt das.
-- **Build-Hinweis Firefox**: `addons-linter` meldet 0 Fehler; die Warnung `DANGEROUS_EVAL` stammt aus dem `setImmediate`-Polyfill in JSZip und wird von F12 Collector nie ausgelöst.
+- **UI in vanilla TypeScript** (no framework) – small and fast, one shared UI (`lib/ui/app.ts`) for the popup and the DevTools panel, with a dark blue theme matching the logo (accent `#1274FF`).
+- **Icons via a `sharp` script** (`scripts/generate-icons.mjs`) instead of `@wxt-dev/auto-icons`, so it can also crop the logo, round the corners and produce a 256 px logo for the UI; the generated PNGs are committed.
+- **Additional permissions** beyond the original spec:
+  - `scripting` – call the content script in all frames (with frame IDs) and inject it into tabs that were already open
+  - `offscreen` (Chrome only) – the service worker cannot create blob URLs; an offscreen document provides the ZIP for the download (fallback: `data:` URL)
+  - `webRequestBlocking` (Firefox only) – required for `filterResponseData` (response bodies)
+- **Additional folders in the export**: `debugger/` (script list, source maps, paused state) and `memory/` (instead of `memory.heapsnapshot`, see above).
+- The **size limit** applies to resources (`sources/`, `styles/stylesheets/`, `storage/cache/`, `dom/frames/`) and response bodies in the HAR – not to core files like `dom/index.html`, `network.har` or `accessibility.json`.
+- **Chrome fallbacks**: if `chrome.debugger` cannot be attached (e.g. because another extension is debugging the tab), Chrome automatically uses the content-script variants (the same as in Firefox) and notes this.
+- **Firefox build note**: `addons-linter` reports 0 errors; the `DANGEROUS_EVAL` warning comes from the `setImmediate` polyfill inside JSZip and is never triggered by F12 Collector.
 
-## Projektstruktur
+## Project structure
 
 ```
 entrypoints/        background.ts, content.ts, popup/, devtools/, devtools-panel/, offscreen/
 collectors/
-  chrome/           CDP-basierte Collector (dom, sources, debugger, network-recorder, styles, accessibility, memory, cdp.ts)
-  firefox/          Content-Script-/fetch-basierte Collector (auch Fallback für Chrome)
-  shared/           für beide gleich: storage, network (HAR), sourcemaps
-lib/                job.ts (Ablauf), export.ts (ZIP + Download), recording.ts, har.ts, redact.ts, settings.ts, content/ (Content-Script-Teile), ui/
-scripts/            generate-icons.mjs
+  chrome/           CDP-based collectors (dom, sources, debugger, network-recorder, styles, accessibility, memory, cdp.ts)
+  firefox/          content-script/fetch-based collectors (also the fallback for Chrome)
+  shared/           identical for both: storage, network (HAR), sourcemaps
+lib/                job.ts (flow), export.ts (ZIP + download), recording.ts, har.ts, redact.ts, settings.ts, content/ (content script parts), ui/
+scripts/            generate-icons.mjs, copy-builds.mjs
+prebuilt/           ready-to-load builds for Chrome and Firefox (updated by npm run build)
 ```
 
-Jeder Collector erfüllt dieselbe Schnittstelle: `(ctx) => Promise<{ files: { pfad: inhalt }, warnings: string[] }>`.
+Every collector implements the same interface: `(ctx) => Promise<{ files: { path: content }, warnings: string[] }>`.

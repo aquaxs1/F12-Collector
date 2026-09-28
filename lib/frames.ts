@@ -1,4 +1,4 @@
-// Content Script in allen Frames aufrufen und die Ergebnisse einsammeln.
+// Call the content script in all frames and gather the results.
 import { browser } from 'wxt/browser';
 import { errMsg, withTimeout } from './fetcher';
 import type { ContentCollectOptions, FrameData } from './types';
@@ -24,13 +24,13 @@ export async function collectFromFrames(
 ): Promise<{ frames: FrameData[]; warnings: string[] }> {
   const warnings: string[] = [];
   let results = await withTimeout(run(tabId, opts), timeoutMs, 'Content Script');
-  // Tabs, die vor der Installation geöffnet wurden, haben noch kein Content Script → nachladen
+  // Tabs opened before installation have no content script yet → inject it
   if (results.some((r) => r.result?.__missing)) {
     try {
       await browser.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['/content-scripts/content.js'] });
       results = await withTimeout(run(tabId, opts), timeoutMs, 'Content Script');
     } catch (e) {
-      warnings.push(`Content Script konnte nicht nachgeladen werden: ${errMsg(e)}`);
+      warnings.push(`Content script could not be injected: ${errMsg(e)}`);
     }
   }
   const frames: FrameData[] = [];
@@ -40,7 +40,7 @@ export async function collectFromFrames(
       continue;
     }
     if (!r.result || r.result.__missing) {
-      warnings.push(`Frame ${r.frameId}: kein Ergebnis vom Content Script`);
+      warnings.push(`Frame ${r.frameId}: no result from the content script`);
       continue;
     }
     frames.push({ ...(r.result as Omit<FrameData, 'frameId'>), frameId: r.frameId });

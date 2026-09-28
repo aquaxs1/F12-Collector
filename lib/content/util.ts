@@ -1,6 +1,6 @@
-// Hilfsfunktionen für das Content Script.
+// Helpers for the content script.
 
-/** Kurzer CSS-Pfad zu einem Element, z. B. "main > div.card:nth-of-type(2) > h2". */
+/** Short CSS path to an element, e.g. "main > div.card:nth-of-type(2) > h2". */
 export function cssPath(el: Element): string {
   const parts: string[] = [];
   let cur: Element | null = el;
@@ -34,7 +34,7 @@ export function cssPath(el: Element): string {
   return parts.join(' > ');
 }
 
-/** Liefert auch geschlossene Shadow Roots, wo der Browser das Content Scripts erlaubt. */
+/** Also returns closed shadow roots where the browser allows content scripts to access them. */
 export function getShadowRoot(el: Element): ShadowRoot | null {
   try {
     const c = (globalThis as any).chrome;
@@ -64,7 +64,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-/** Wandelt beliebige (structured-clone-)Werte in JSON-taugliche Werte um. */
+/** Converts arbitrary (structured-clone) values into JSON-friendly values. */
 export function toJsonSafe(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
   if (value === null || value === undefined) return value ?? null;
   const t = typeof value;
@@ -72,9 +72,9 @@ export function toJsonSafe(value: unknown, depth = 0, seen = new WeakSet<object>
   if (t === 'number') return Number.isFinite(value as number) ? value : String(value);
   if (t === 'bigint') return { __type: 'BigInt', value: String(value) };
   if (t !== 'object') return String(value);
-  if (depth > 30) return '[zu tief verschachtelt]';
+  if (depth > 30) return '[nested too deeply]';
   const obj = value as object;
-  if (seen.has(obj)) return '[Zirkulär]';
+  if (seen.has(obj)) return '[circular]';
   seen.add(obj);
   if (obj instanceof Date) return { __type: 'Date', value: isNaN(obj.getTime()) ? 'Invalid Date' : obj.toISOString() };
   if (obj instanceof RegExp) return { __type: 'RegExp', value: String(obj) };

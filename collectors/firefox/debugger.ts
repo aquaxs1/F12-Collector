@@ -1,4 +1,4 @@
-// Debugger (Fallback/Firefox): nur Script-Liste und Source Maps – kein Call Stack.
+// Debugger (fallback/Firefox): script list and source maps only – no call stack.
 import type { Collector, JobContext, ScriptRecord } from '@/lib/context';
 import type { CollectorResult } from '@/lib/types';
 
@@ -14,14 +14,14 @@ export function writeScriptLists(ctx: JobContext, result: CollectorResult, scrip
   result.files['debugger/scripts.json'] = JSON.stringify(
     {
       count: scripts.length,
-      note: 'path = Datei im Ordner sources/ (falls exportiert)',
+      note: 'path = file in the sources/ folder (if exported)',
       scripts,
     },
     null,
     2,
   );
   result.files['debugger/sourcemaps.json'] = JSON.stringify(ctx.shared.sourceMaps ?? [], null, 2);
-  if (!ctx.shared.sourceMaps) result.warnings.push('Source Maps werden nur aufgelöst, wenn auch "Quellcode & Source Maps" ausgewählt ist.');
+  if (!ctx.shared.sourceMaps) result.warnings.push('Source maps are only resolved if "Sources & source maps" is selected too.');
 }
 
 export const collectDebuggerFallback: Collector = async (ctx) => {
@@ -30,11 +30,11 @@ export const collectDebuggerFallback: Collector = async (ctx) => {
   result.files['debugger/paused-state.json'] = JSON.stringify(
     {
       available: false,
-      note: 'In Firefox haben Extensions keinen Zugriff auf den JavaScript-Debugger: Call Stack, Scope-Variablen und Breakpoints können nicht exportiert werden.',
+      note: 'In Firefox, extensions have no access to the JavaScript debugger: call stack, scope variables and breakpoints cannot be exported.',
     },
     null,
     2,
   );
-  result.warnings.push('Nur Script-Liste und Source Maps – Call Stack und Scope-Variablen sind ohne Debugger-API nicht verfügbar.');
+  result.warnings.push('Script list and source maps only – call stack and scope variables are not available without a debugger API.');
   return result;
 };

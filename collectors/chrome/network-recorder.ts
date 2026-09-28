@@ -1,4 +1,4 @@
-// Netzwerk-Aufzeichnung über CDP (Network.*) → HAR 1.2 inkl. Response-Bodies.
+// Network recording via CDP (Network.*) → HAR 1.2 incl. response bodies.
 import type { JobContext } from '@/lib/context';
 import { errMsg, formatBytes, mapLimit } from '@/lib/fetcher';
 import {
@@ -173,7 +173,7 @@ export class CdpNetworkRecorder {
       const resp = r.response;
       const respHeaders = headersFromObject(respExtra?.headers ?? resp?.headers);
 
-      // Request-Body
+      // Request body
       let postData: any;
       if (r.request.hasPostData) {
         let text: string | undefined = r.request.postData;
@@ -181,13 +181,13 @@ export class CdpNetworkRecorder {
           try {
             text = (await this.cdp.send<{ postData: string }>('Network.getRequestPostData', { requestId: r.id })).postData;
           } catch {
-            /* nicht mehr verfügbar */
+            /* no longer available */
           }
         }
         if (text !== undefined) postData = { mimeType: headerValue(reqHeaders, 'content-type') ?? '', text };
       }
 
-      // Response-Body
+      // Response body
       const content: any = { size: r.dataLength || resp?.encodedDataLength || 0, mimeType: resp?.mimeType ?? 'x-unknown' };
       const status = resp?.status ?? 0;
       if (ctx.settings.includeBodies && r.finished && !r.failed && !r.redirectURL && resp && status !== 204 && status !== 304) {
@@ -196,8 +196,8 @@ export class CdpNetworkRecorder {
           const size = b.base64Encoded ? Math.floor(b.body.length * 0.75) : b.body.length;
           if (size > ctx.maxBytes) {
             bodiesSkipped++;
-            content.comment = `Body nicht exportiert: ${formatBytes(size)} > Limit ${formatBytes(ctx.maxBytes)}`;
-            ctx.skipped.push({ path: `network.har → ${r.request.url}`, reason: 'Response-Body größer als Limit', size });
+            content.comment = `Body not exported: ${formatBytes(size)} > limit ${formatBytes(ctx.maxBytes)}`;
+            ctx.skipped.push({ path: `network.har → ${r.request.url}`, reason: 'response body larger than limit', size });
           } else {
             content.text = b.body;
             if (b.base64Encoded) content.encoding = 'base64';
@@ -205,7 +205,7 @@ export class CdpNetworkRecorder {
           }
         } catch (e) {
           bodiesFailed++;
-          content.comment = `Body nicht verfügbar: ${errMsg(e)}`;
+          content.comment = `Body not available: ${errMsg(e)}`;
         }
       }
 
@@ -257,7 +257,7 @@ export class CdpNetworkRecorder {
           headersSize: -1,
           bodySize: r.encodedDataLength ?? -1,
           _transferSize: r.encodedDataLength ?? -1,
-          ...(r.failed ? { _error: r.errorText ?? 'fehlgeschlagen' } : {}),
+          ...(r.failed ? { _error: r.errorText ?? 'failed' } : {}),
         },
         cache: {},
         timings,
@@ -269,13 +269,13 @@ export class CdpNetworkRecorder {
         _fromCache: resp?.fromDiskCache ? 'disk' : resp?.fromPrefetchCache ? 'prefetch' : undefined,
         _fromServiceWorker: resp?.fromServiceWorker || undefined,
       };
-      if (!r.finished && !r.failed) entry.comment = 'Request war beim Export noch nicht abgeschlossen';
+      if (!r.finished && !r.failed) entry.comment = 'Request had not finished at export time';
       return entry;
     });
     har.log.entries = entries.sort((a, b) => a.startedDateTime.localeCompare(b.startedDateTime));
-    har.log.comment = 'Aufgezeichnet mit dem Chrome DevTools Protocol (Network-Domain) während "Aufzeichnen & neu laden".';
-    if (bodiesSkipped) warnings.push(`${bodiesSkipped} Response-Body(s) über dem Größenlimit nicht exportiert.`);
-    if (bodiesFailed) warnings.push(`${bodiesFailed} Response-Body(s) waren nicht mehr verfügbar (z. B. aus dem Puffer verdrängt).`);
+    har.log.comment = 'Recorded with the Chrome DevTools Protocol (Network domain) during "Record & reload".';
+    if (bodiesSkipped) warnings.push(`${bodiesSkipped} response body/bodies above the size limit not exported.`);
+    if (bodiesFailed) warnings.push(`${bodiesFailed} response body/bodies were no longer available (e.g. evicted from the buffer).`);
     return { har, warnings };
   }
 }

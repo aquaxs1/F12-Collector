@@ -1,4 +1,4 @@
-// Gemeinsame Oberfläche für Popup und DevTools-Panel.
+// Shared UI for the popup and the DevTools panel.
 import { browser } from 'wxt/browser';
 import { IS_FIREFOX, getAreas } from '../areas';
 import { loadSettings, normalizeSettings, saveSettings } from '../settings';
@@ -38,17 +38,17 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   let state: JobState = { running: false, steps: [] };
   const persist = () => saveSettings(settings).catch(() => {});
 
-  // ---------- Kopf ----------
+  // ---------- Header ----------
   const urlLine = h('div', { class: 'sub' }, '');
   const header = h(
     'header',
     {},
     h('img', { src: browser.runtime.getURL('/logo-ui.png' as any), alt: 'F12 Collector Logo' }),
-    h('div', {}, h('h1', {}, 'F12 Collector'), urlLine),
+    h('div', {}, h('h1', {}, 'F12 ', h('span', {}, 'Collector')), urlLine),
   );
 
-  // ---------- Bereiche ----------
-  const areaBox = h('fieldset', {}, h('legend', {}, 'Bereiche'));
+  // ---------- Areas ----------
+  const areaBox = h('fieldset', {}, h('legend', {}, 'Areas'));
   for (const a of getAreas()) {
     const unavailable = a.support === 'unavailable';
     const cb = h('input', {
@@ -66,7 +66,7 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
         { class: `area ${a.support}`, title: a.note ?? '' },
         cb,
         h('span', {}, a.label),
-        a.support !== 'full' ? h('span', { class: `badge ${a.support}` }, a.support === 'limited' ? 'eingeschränkt' : 'nicht verfügbar') : null,
+        a.support !== 'full' ? h('span', { class: `badge ${a.support}` }, a.support === 'limited' ? 'limited' : 'unavailable') : null,
         a.note ? h('span', { class: 'note' }, a.note) : null,
       ),
     );
@@ -74,8 +74,8 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   const allRow = h(
     'div',
     { class: 'row' },
-    h('button', { type: 'button', style: 'flex:0;padding:2px 8px;font-weight:400', onclick: () => setAll(true) }, 'alle'),
-    h('button', { type: 'button', style: 'flex:0;padding:2px 8px;font-weight:400', onclick: () => setAll(false) }, 'keine'),
+    h('button', { type: 'button', class: 'small', onclick: () => setAll(true) }, 'all'),
+    h('button', { type: 'button', class: 'small', onclick: () => setAll(false) }, 'none'),
   );
   areaBox.append(allRow);
   function setAll(v: boolean) {
@@ -88,8 +88,8 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   const redactWarn = h(
     'div',
     { class: 'warnbox' },
-    h('strong', {}, '⚠ Achtung: '),
-    'Der Export enthält dann Cookie-Werte, Session-Tokens und Authorization-Header im Klartext. Wer das ZIP bekommt, kann sich damit evtl. als du anmelden. Nur für eigene Analysen verwenden!',
+    h('strong', {}, '⚠ Warning: '),
+    'The export will contain cookie values, session tokens and Authorization headers in plain text. Anyone who gets the ZIP may be able to log in as you. Use for your own analysis only!',
   );
   const redactCb = h('input', {
     type: 'checkbox',
@@ -104,13 +104,13 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   const privacyBox = h(
     'fieldset',
     {},
-    h('legend', {}, 'Datenschutz'),
-    h('label', { class: 'area' }, redactCb, h('span', {}, 'Sensible Daten schwärzen ([REDACTED])')),
-    h('div', { class: 'note', style: 'color:var(--muted);font-size:11.5px' }, 'Cookies, Authorization/Cookie/Set-Cookie-Header, Tokens (JWT, *token*, *auth*, *session*, *secret*).'),
+    h('legend', {}, 'Privacy'),
+    h('label', { class: 'area' }, redactCb, h('span', {}, 'Redact sensitive data ([REDACTED])')),
+    h('div', { class: 'muted' }, 'Cookies, Authorization/Cookie/Set-Cookie headers, tokens (JWT, *token*, *auth*, *session*, *secret*).'),
     redactWarn,
   );
 
-  // ---------- Einstellungen ----------
+  // ---------- Settings ----------
   const numberInput = (key: keyof Settings, min: number, max: number, step = 1) =>
     h('input', {
       type: 'number',
@@ -147,26 +147,26 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
         persist();
       },
     },
-    h('option', { value: 'visible' }, 'nur sichtbare Elemente'),
-    h('option', { value: 'all' }, 'alle Elemente'),
-    h('option', { value: 'none' }, 'keine'),
+    h('option', { value: 'visible' }, 'visible elements only'),
+    h('option', { value: 'all' }, 'all elements'),
+    h('option', { value: 'none' }, 'none'),
   );
   modeSelect.value = settings.computedStylesMode;
   const settingsBox = h(
     'details',
     {},
-    h('summary', {}, 'Einstellungen'),
+    h('summary', {}, 'Settings'),
     h(
       'div',
       { style: 'padding:6px 2px' },
-      h('div', { class: 'row' }, 'Max. Dateigröße', numberInput('maxFileSizeMB', 0.1, 2000, 0.5), 'MB'),
-      checkbox('includeBodies', 'Response-Bodies ins HAR aufnehmen'),
+      h('div', { class: 'row' }, 'Max. file size', numberInput('maxFileSizeMB', 0.1, 2000, 0.5), 'MB'),
+      checkbox('includeBodies', 'Include response bodies in the HAR'),
       h('div', { class: 'row' }, 'Computed Styles:', modeSelect),
-      h('div', { class: 'row' }, 'max.', numberInput('computedStylesLimit', 1, 100000), 'Elemente'),
-      checkbox('computedStylesDiffOnly', 'nur vom Browser-Standard abweichende Werte'),
-      h('div', { class: 'row' }, 'Netzwerk ruhig nach', numberInput('networkIdleMs', 250, 60000, 250), 'ms'),
-      h('div', { class: 'row' }, 'Aufzeichnung max.', numberInput('networkMaxWaitSec', 3, 600), 's'),
-      h('div', { class: 'row' }, 'IndexedDB max.', numberInput('indexedDbMaxRecords', 0, 1000000), 'Datensätze/Store'),
+      h('div', { class: 'row' }, 'max.', numberInput('computedStylesLimit', 1, 100000), 'elements'),
+      checkbox('computedStylesDiffOnly', 'only values that differ from browser defaults'),
+      h('div', { class: 'row' }, 'Network idle after', numberInput('networkIdleMs', 250, 60000, 250), 'ms'),
+      h('div', { class: 'row' }, 'Recording max.', numberInput('networkMaxWaitSec', 3, 600), 's'),
+      h('div', { class: 'row' }, 'IndexedDB max.', numberInput('indexedDbMaxRecords', 0, 1000000), 'records/store'),
       h('div', { class: 'row' }, 'Source Maps max.', numberInput('maxSourceMaps', 0, 10000)),
       h(
         'button',
@@ -179,17 +179,17 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
             location.reload();
           },
         },
-        'Standardwerte wiederherstellen',
+        'Restore defaults',
       ),
     ),
   );
 
-  // ---------- Firefox: Host-Berechtigung ----------
+  // ---------- Firefox: host permission ----------
   const permBox = h(
     'div',
     { class: 'errbox hidden' },
-    h('strong', {}, 'Zugriff auf Websites fehlt. '),
-    'Firefox erteilt die Berechtigung für alle Websites nicht automatisch. ',
+    h('strong', {}, 'Website access missing. '),
+    'Firefox does not grant access to all websites automatically. ',
     h(
       'button',
       {
@@ -201,7 +201,7 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
           checkPermissions();
         },
       },
-      'Zugriff auf alle Websites erlauben',
+      'Allow access to all websites',
     ),
   );
   async function checkPermissions() {
@@ -215,38 +215,38 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   if (IS_FIREFOX) checkPermissions();
 
   // ---------- Buttons ----------
-  const snapBtn = h('button', { class: 'primary', type: 'button', onclick: () => start('snapshot') }, '📸 Snapshot erstellen');
+  const snapBtn = h('button', { class: 'primary', type: 'button', onclick: () => start('snapshot') }, '📸 Take snapshot');
   const recBtn = h(
     'button',
-    { type: 'button', onclick: () => start('record'), title: 'Netzwerk-Mitschnitt starten, Seite neu laden, warten bis Ruhe herrscht, dann Snapshot' },
-    '⏺ Aufzeichnen & neu laden',
+    { type: 'button', onclick: () => start('record'), title: 'Start network recording, reload the page, wait until the network is idle, then take a snapshot' },
+    '⏺ Record & reload',
   );
   const buttons = h('div', { class: 'buttons' }, snapBtn, recBtn);
 
-  // ---------- Fortschritt ----------
+  // ---------- Progress ----------
   const statusMsg = h('div', { class: 'status-msg' });
   const errorBox = h('div', { class: 'errbox hidden' });
   const stepList = h('ul', { class: 'steps' });
   const resultBox = h('div', { class: 'hidden', style: 'margin-top:8px' });
-  const progress = h('fieldset', {}, h('legend', {}, 'Fortschritt'), statusMsg, errorBox, stepList, resultBox);
-  const idleHint = h('div', { style: 'color:var(--muted)' }, 'Noch kein Export gestartet. Die Datei landet im Download-Ordner.');
+  const progress = h('fieldset', {}, h('legend', {}, 'Progress'), statusMsg, errorBox, stepList, resultBox);
+  const idleHint = h('div', { class: 'muted' }, 'No export yet. The ZIP file is saved to your downloads folder.');
   progress.append(idleHint);
 
   const limited = getAreas().filter((a) => a.support !== 'full');
   const footer = h(
     'div',
     { class: 'footer' },
-    'Alles bleibt lokal – kein Upload, keine Telemetrie.',
+    'Everything stays local – no uploads, no telemetry.',
     limited.length
       ? h(
           'div',
           { style: 'margin-top:4px' },
-          `${IS_FIREFOX ? 'Firefox' : 'Chrome'}-Einschränkungen: `,
+          `${IS_FIREFOX ? 'Firefox' : 'Chrome'} limitations: `,
           limited.map((a) => `${a.label} (${a.note})`).join(' · '),
         )
       : null,
     opts.kind === 'devtools'
-      ? h('div', { style: 'margin-top:4px' }, 'Tipp: Ein Snapshot aus diesem Panel übernimmt auch die Requests aus dem Netzwerk-Tab (seit Öffnen der DevTools).')
+      ? h('div', { style: 'margin-top:4px' }, 'Tip: a snapshot taken from this panel also includes the requests from the Network tab (since DevTools was opened).')
       : null,
   );
 
@@ -254,7 +254,7 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   const right = h('div', {}, progress, footer);
   root.append(h('div', { class: 'app' }, header, h('div', { class: 'layout' }, left, right)));
 
-  // ---------- Verbindung zum Background ----------
+  // ---------- Connection to the background ----------
   let port = connect();
   function connect() {
     const p = browser.runtime.connect({ name: 'f12c-ui' });
@@ -274,11 +274,11 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
   async function start(mode: RunMode) {
     const tabId = await opts.getTabId();
     if (tabId === undefined) {
-      render({ running: false, steps: [], error: 'Kein aktiver Tab gefunden.' });
+      render({ running: false, steps: [], error: 'No active tab found.' });
       return;
     }
     if (!Object.values(settings.areas).some(Boolean)) {
-      render({ running: false, steps: [], error: 'Bitte mindestens einen Bereich auswählen.' });
+      render({ running: false, steps: [], error: 'Please select at least one area.' });
       return;
     }
     snapBtn.disabled = recBtn.disabled = true;
@@ -301,17 +301,17 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
     errorBox.classList.toggle('hidden', !s.error);
     resultBox.classList.toggle('hidden', s.running || (!s.warnings?.length && !s.fileName));
     resultBox.replaceChildren(
-      ...(s.fileName && !s.running ? [h('div', {}, '📦 ', h('strong', {}, s.fileName), ' → Download-Ordner')] : []),
-      ...(s.skippedCount ? [h('div', { style: 'color:var(--warn)' }, `${s.skippedCount} Datei(en)/Bodies wegen Größenlimit übersprungen (Liste in manifest.json)`)] : []),
+      ...(s.fileName && !s.running ? [h('div', {}, '📦 ', h('strong', {}, s.fileName), ' → downloads folder')] : []),
+      ...(s.skippedCount ? [h('div', { style: 'color:var(--warn)' }, `${s.skippedCount} file(s)/bodies skipped due to the size limit (listed in manifest.json)`)] : []),
       ...(s.missing?.length
-        ? [h('div', { style: 'margin-top:4px' }, h('strong', {}, 'Fehlt/eingeschränkt: '), s.missing.map((m) => `${m.label}${m.reason ? ` – ${m.reason}` : ''}`).join(' · '))]
+        ? [h('div', { style: 'margin-top:4px' }, h('strong', {}, 'Missing/limited: '), s.missing.map((m) => `${m.label}${m.reason ? ` – ${m.reason}` : ''}`).join(' · '))]
         : []),
       ...(s.warnings?.length
         ? [
             h(
               'details',
               { style: 'margin-top:4px' },
-              h('summary', {}, `Hinweise (${s.warningsCount ?? s.warnings.length})`),
+              h('summary', {}, `Notes (${s.warningsCount ?? s.warnings.length})`),
               h('ul', { style: 'margin:4px 0 0;padding-left:18px;font-size:11.5px' }, ...s.warnings.map((w) => h('li', {}, w))),
             ),
           ]
@@ -330,7 +330,7 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
     );
   }
 
-  // Tab-URL anzeigen (über den Background – DevTools-Panels haben nicht überall die tabs-API)
+  // Show the tab URL (via the background – DevTools panels do not have the tabs API everywhere)
   const tabId = await opts.getTabId();
   if (tabId !== undefined) port.postMessage({ type: 'get-tab', tabId });
   else urlLine.textContent = '';

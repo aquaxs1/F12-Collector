@@ -1,4 +1,4 @@
-// Liste aller Scripts, Stylesheets und geladenen Ressourcen eines Frames.
+// List of all scripts, stylesheets and loaded resources of a frame.
 import type { FrameData, PerfEntryInfo, ScriptInfo, StylesheetInfo } from '../types';
 import { cssPath } from './util';
 

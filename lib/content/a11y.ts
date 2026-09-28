@@ -1,5 +1,5 @@
-// Barrierefreiheit (Annäherung ohne Browser-Accessibility-API):
-// Rollen (explizit/implizit), ARIA-Attribute, Zustände und zugängliche Namen (vereinfachte AccName-Berechnung).
+// Accessibility (approximation without a browser accessibility API):
+// roles (explicit/implicit), ARIA attributes, states and accessible names (simplified AccName computation).
 import type { A11yNode } from '../types';
 import { getShadowRoot } from './util';
 
@@ -178,7 +178,7 @@ export function collectA11y(): { tree: A11yNode; nodeCount: number; truncated: b
     }
     if (['script', 'style', 'noscript', 'template', 'head', 'meta', 'link'].includes(el.localName)) return [];
     const hidden = isHidden(el);
-    if (hidden) return []; // wie im Accessibility Tree: ausgeblendete Teilbäume fehlen
+    if (hidden) return []; // like the accessibility tree: hidden subtrees are omitted
     const explicit = el.getAttribute('role')?.trim().split(/\s+/)[0];
     const role = explicit || implicitRole(el);
     const aria: Record<string, string> = {};
@@ -197,7 +197,6 @@ export function collectA11y(): { tree: A11yNode; nodeCount: number; truncated: b
     const kids: A11yNode[] = [];
     const root = getShadowRoot(el);
     for (const c of Array.from((root ?? el).children)) kids.push(...build(c));
-    // Text direkt unter semantischen Knoten als "text"-Knoten (für Namen aus Inhalt ohnehin im Namen)
     const interesting = !!role && role !== 'presentation' && role !== 'none' || Object.keys(aria).length > 0 || !!states.focusable;
     if (!interesting) return kids;
     count++;

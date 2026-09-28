@@ -1,4 +1,4 @@
-// Styles (Chrome): alle Stylesheets über CSS.getStyleSheetText, Computed Styles aus dem Content Script.
+// Styles (Chrome): all stylesheets via CSS.getStyleSheetText, computed styles from the content script.
 import { collectStylesFallback, sheetFileName, writeComputed } from '@/collectors/firefox/styles';
 import type { Collector } from '@/lib/context';
 import { errMsg, mapLimit } from '@/lib/fetcher';
@@ -8,21 +8,21 @@ import type { CollectorResult } from '@/lib/types';
 export const collectStylesChrome: Collector = async (ctx) => {
   if (!ctx.cdp) {
     const r = await collectStylesFallback(ctx);
-    r.warnings.unshift('Chrome-Debugger nicht verbunden – Stylesheets aus dem CSSOM.');
+    r.warnings.unshift('Chrome debugger not attached – stylesheets from the CSSOM.');
     return r;
   }
   const cdp = ctx.cdp;
   const result: CollectorResult = { files: {}, warnings: [] };
   if (ctx.shared.pausedEvent) {
-    // CSS.enable antwortet nicht, solange die Seite im Debugger angehalten ist
-    result.warnings.push('Seite ist im Debugger pausiert: Stylesheets und Computed Styles können nicht gelesen werden (verlinkte CSS-Dateien stehen unter sources/).');
+    // CSS.enable does not respond while the page is paused in the debugger
+    result.warnings.push('Page is paused in the debugger: stylesheets and computed styles cannot be read (linked CSS files are under sources/).');
     return result;
   }
   const headers: any[] = [];
   const off = cdp.on('CSS.styleSheetAdded', (p) => headers.push(p.header));
   try {
     await cdp.send('DOM.enable');
-    await cdp.send('CSS.enable', undefined, 15000); // meldet alle vorhandenen Stylesheets per styleSheetAdded
+    await cdp.send('CSS.enable', undefined, 15000); // reports all existing stylesheets via styleSheetAdded
     await new Promise((r) => setTimeout(r, 300));
   } finally {
     off();
@@ -32,7 +32,7 @@ export const collectStylesChrome: Collector = async (ctx) => {
   let done = 0;
   let failed = 0;
   const index = await mapLimit(relevant, 6, async (h, i) => {
-    ctx.detail(`Stylesheets ${++done}/${relevant.length}`);
+    ctx.detail(`stylesheets ${++done}/${relevant.length}`);
     const entry: Record<string, unknown> = {
       styleSheetId: h.styleSheetId,
       sourceURL: h.sourceURL || undefined,
@@ -59,7 +59,7 @@ export const collectStylesChrome: Collector = async (ctx) => {
   });
   await cdp.send('CSS.disable').catch(() => {});
   result.files['styles/stylesheets/index.json'] = JSON.stringify(index, null, 2);
-  if (failed) result.warnings.push(`${failed} Stylesheet(s) nicht lesbar.`);
+  if (failed) result.warnings.push(`${failed} stylesheet(s) not readable.`);
   writeComputed(ctx, result);
   return result;
 };

@@ -1,5 +1,5 @@
-// "Aufzeichnen & neu laden": zuerst Listener/CDP aktivieren, dann Tab neu laden,
-// warten bis das Netzwerk ruhig ist (z. B. 2 s ohne neue Requests, max. 30 s).
+// "Record & reload": enable listeners/CDP first, then reload the tab and
+// wait until the network is idle (e.g. 2 s without new requests, max. 30 s).
 import { CdpNetworkRecorder } from '@/collectors/chrome/network-recorder';
 import { WebRequestRecorder } from '@/collectors/firefox/network-recorder';
 import { IS_FIREFOX } from './areas';
@@ -25,14 +25,14 @@ export async function startRecording(ctx: JobContext): Promise<NetworkRecording>
     if (!ctx.cdp) return simpleReload(ctx);
     const cdp = ctx.cdp;
     recorder = new CdpNetworkRecorder(cdp);
-    // Scripts bereits beim Laden erfassen (inkl. solcher, die später vom GC entfernt werden)
+    // Capture scripts while loading (including ones the GC removes later)
     if (ctx.settings.areas.sources || ctx.settings.areas.debugger) {
       const parsed: any[] = [];
       offs.push(cdp.on('Debugger.scriptParsed', (p) => parsed.push(p)));
       await cdp.send('Debugger.enable', { maxScriptsCacheSize: 100_000_000 });
       await cdp.send('Debugger.setSkipAllPauses', { skip: true }).catch(() => {});
       await new Promise((r) => setTimeout(r, 300));
-      parsed.length = 0; // Scripts der alten Seite verwerfen
+      parsed.length = 0; // discard scripts of the old page
       ctx.shared.parsedScripts = parsed;
     }
   }
@@ -55,18 +55,18 @@ export async function startRecording(ctx: JobContext): Promise<NetworkRecording>
         const loaded = recorder.checkLoaded ? await recorder.checkLoaded() : recorder.loaded;
         const quietFor = Date.now() - recorder.lastActivity;
         onDetail(
-          `${recorder.count} Requests, ${recorder.pending} offen, ${loaded ? 'geladen' : 'lädt …'} – ${Math.floor(elapsed / 1000)} s` +
-            (loaded ? ` (ruhig seit ${(quietFor / 1000).toFixed(1)} s)` : ''),
+          `${recorder.count} requests, ${recorder.pending} pending, ${loaded ? 'loaded' : 'loading …'} – ${Math.floor(elapsed / 1000)} s` +
+            (loaded ? ` (idle for ${(quietFor / 1000).toFixed(1)} s)` : ''),
         );
         if (loaded && quietFor >= networkIdleMs) {
-          offs.splice(0).forEach((off) => off()); // Script-Erfassung beenden, Netzwerk-Listener laufen weiter
-          return { timedOut: false, summary: `${recorder.count} Requests in ${(elapsed / 1000).toFixed(1)} s aufgezeichnet` };
+          offs.splice(0).forEach((off) => off()); // stop capturing scripts, network listeners keep running
+          return { timedOut: false, summary: `${recorder.count} requests recorded in ${(elapsed / 1000).toFixed(1)} s` };
         }
         if (elapsed >= maxMs) {
           offs.splice(0).forEach((off) => off());
           return {
             timedOut: true,
-            summary: `Zeitlimit ${networkMaxWaitSec} s erreicht (${recorder.count} Requests, ${recorder.pending} noch offen${loaded ? '' : ', Seite nicht fertig geladen'})`,
+            summary: `Time limit of ${networkMaxWaitSec} s reached (${recorder.count} requests, ${recorder.pending} still pending${loaded ? '' : ', page not fully loaded'})`,
           };
         }
       }
@@ -81,7 +81,7 @@ export async function startRecording(ctx: JobContext): Promise<NetworkRecording>
   };
 }
 
-/** Ohne Debugger: nur neu laden und warten, bis der Tab fertig geladen ist. */
+/** Without debugger: just reload and wait until the tab has finished loading. */
 function simpleReload(ctx: JobContext): NetworkRecording {
   return {
     async reloadAndWait(onDetail) {
@@ -90,17 +90,17 @@ function simpleReload(ctx: JobContext): NetworkRecording {
       await new Promise((r) => setTimeout(r, 500));
       while (Date.now() - t0 < ctx.settings.networkMaxWaitSec * 1000) {
         const tab = await browser.tabs.get(ctx.tabId);
-        onDetail(`lädt … ${Math.floor((Date.now() - t0) / 1000)} s`);
+        onDetail(`loading … ${Math.floor((Date.now() - t0) / 1000)} s`);
         if (tab.status === 'complete') {
           await new Promise((r) => setTimeout(r, ctx.settings.networkIdleMs));
-          return { timedOut: false, summary: 'neu geladen (ohne Netzwerk-Mitschnitt, Debugger nicht verbunden)' };
+          return { timedOut: false, summary: 'reloaded (no network recording, debugger not attached)' };
         }
         await new Promise((r) => setTimeout(r, 250));
       }
-      return { timedOut: true, summary: 'Zeitlimit erreicht (ohne Netzwerk-Mitschnitt)' };
+      return { timedOut: true, summary: 'time limit reached (no network recording)' };
     },
     async toHar() {
-      return { har: harFromPerformance(ctx), warnings: ['Debugger nicht verbunden – HAR nur aus Resource-Timing-Daten.'] };
+      return { har: harFromPerformance(ctx), warnings: ['Debugger not attached – HAR from Resource Timing data only.'] };
     },
     async stop() {},
   };

@@ -2,8 +2,8 @@ import { mountApp } from '@/lib/ui/app';
 import type { DevtoolsExtras } from '@/lib/types';
 import { browser } from 'wxt/browser';
 
-// Solange das Panel offen ist, Response-Bodies aus dem Netzwerk-Tab puffern,
-// damit ein Snapshot (ohne Neuladen) trotzdem Bodies im HAR hat.
+// While the panel is open, buffer response bodies from the Network tab so that
+// a snapshot (without reloading) still has bodies in the HAR.
 const MAX_BUFFER = 100 * 1024 * 1024;
 const bodies: NonNullable<DevtoolsExtras['bodies']> = [];
 let buffered = 0;
@@ -31,7 +31,7 @@ try {
     buffered = 0;
   });
 } catch {
-  /* Netzwerk-API nicht verfügbar */
+  /* network API not available */
 }
 
 function getHAR(): Promise<any> {

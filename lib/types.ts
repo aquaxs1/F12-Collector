@@ -1,4 +1,4 @@
-// Gemeinsame Typen für Background, UI, Content Script und Collector.
+// Shared types for the background, UI, content script and collectors.
 
 export type Area =
   | 'dom'
@@ -12,7 +12,7 @@ export type Area =
 
 export type FileContent = string | Uint8Array;
 
-/** Einheitliche Schnittstelle: jeder Collector liefert Dateien + Warnungen. */
+/** Common interface: every collector returns files + warnings. */
 export interface CollectorResult {
   files: Record<string, FileContent>;
   warnings: string[];
@@ -22,23 +22,23 @@ export type ComputedStylesMode = 'visible' | 'all' | 'none';
 
 export interface Settings {
   areas: Record<Area, boolean>;
-  /** Sensible Werte (Cookies, Auth-Header, Tokens) durch [REDACTED] ersetzen. */
+  /** Replace sensitive values (cookies, auth headers, tokens) with [REDACTED]. */
   redact: boolean;
-  /** Maximale Größe einer einzelnen Datei bzw. eines Response-Bodys in MB. */
+  /** Maximum size of a single file or response body in MB. */
   maxFileSizeMB: number;
-  /** Response-Bodies in network.har aufnehmen. */
+  /** Include response bodies in network.har. */
   includeBodies: boolean;
   computedStylesMode: ComputedStylesMode;
   computedStylesLimit: number;
-  /** Nur Werte speichern, die vom Browser-Standard abweichen (spart viel Platz). */
+  /** Only store values that differ from browser defaults (saves a lot of space). */
   computedStylesDiffOnly: boolean;
-  /** Netzwerk gilt als "ruhig" nach so vielen ms ohne neue Requests. */
+  /** The network counts as "idle" after this many ms without new requests. */
   networkIdleMs: number;
-  /** Maximale Wartezeit bei "Aufzeichnen & neu laden" in Sekunden. */
+  /** Maximum wait time for "Record & reload" in seconds. */
   networkMaxWaitSec: number;
-  /** Maximale Anzahl Datensätze pro IndexedDB-Object-Store. */
+  /** Maximum number of records per IndexedDB object store. */
   indexedDbMaxRecords: number;
-  /** Maximale Anzahl Source Maps, die aufgelöst werden. */
+  /** Maximum number of source maps to resolve. */
   maxSourceMaps: number;
 }
 
@@ -64,17 +64,17 @@ export interface JobState {
   finishedAt?: string;
   fileName?: string;
   warningsCount?: number;
-  /** Hinweise für die Anzeige im UI (vollständig in manifest.json) */
+  /** Notes to display in the UI (complete list in manifest.json) */
   warnings?: string[];
   skippedCount?: number;
-  /** Bereiche, die in diesem Browser fehlen oder eingeschränkt sind */
+  /** Areas that are missing or limited in this browser */
   missing?: { label: string; reason?: string }[];
 }
 
-/** Daten, die das DevTools-Panel zusätzlich mitliefern kann. */
+/** Extra data the DevTools panel can provide. */
 export interface DevtoolsExtras {
   har?: any;
-  /** Response-Bodies, die das Panel über devtools.network.onRequestFinished gesammelt hat. */
+  /** Response bodies the panel collected via devtools.network.onRequestFinished. */
   bodies?: { url: string; method: string; content: string; encoding?: string; mimeType?: string }[];
 }
 
@@ -98,7 +98,7 @@ export interface ContentCollectOptions {
   resources: boolean;
   storage: boolean;
   styles: boolean;
-  /** Stylesheets im Content Script lesen (nur nötig ohne CDP) */
+  /** Read stylesheets in the content script (only needed without CDP) */
   styleSheets: boolean;
   a11y: boolean;
   computedStylesMode: ComputedStylesMode;
@@ -123,7 +123,7 @@ export interface ScriptInfo {
 
 export interface StylesheetInfo {
   href?: string;
-  /** Regeltext, falls lesbar (Same-Origin oder CORS). */
+  /** Rule text, if readable (same-origin or CORS). */
   text?: string;
   owner: string;
   media?: string;
