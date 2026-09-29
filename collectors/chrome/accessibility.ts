@@ -1,4 +1,4 @@
-// Barrierefreiheit (Chrome): Accessibility.getFullAXTree (echter Accessibility Tree).
+// Accessibility (Chrome): Accessibility.getFullAXTree (the real accessibility tree).
 import { collectA11yFallback } from '@/collectors/firefox/accessibility';
 import type { Collector } from '@/lib/context';
 import { errMsg } from '@/lib/fetcher';
@@ -27,7 +27,7 @@ interface TreeNode {
   children?: TreeNode[];
 }
 
-/** Flache AX-Knotenliste → verschachtelter Baum (ignorierte Knoten werden übersprungen). */
+/** Flat AX node list → nested tree (ignored nodes are skipped). */
 function buildTree(nodes: AXNode[]): TreeNode[] {
   const byId = new Map(nodes.map((n) => [n.nodeId, n]));
   const roots = nodes.filter((n) => !n.parentId || !byId.has(n.parentId));
@@ -52,7 +52,7 @@ function buildTree(nodes: AXNode[]): TreeNode[] {
 export const collectA11yChrome: Collector = async (ctx) => {
   if (!ctx.cdp) {
     const r = await collectA11yFallback(ctx);
-    r.warnings.unshift('Chrome-Debugger nicht verbunden – nur Annäherung.');
+    r.warnings.unshift('Chrome debugger not attached – approximation only.');
     return r;
   }
   const cdp = ctx.cdp;
@@ -60,7 +60,7 @@ export const collectA11yChrome: Collector = async (ctx) => {
   await cdp.send('Accessibility.enable');
   try {
     const main = await cdp.send<{ nodes: AXNode[] }>('Accessibility.getFullAXTree', {});
-    // Weitere Frames (sofern im selben Prozess)
+    // Additional frames (if in the same process)
     const frames: { frameId: string; url: string; nodes: AXNode[] }[] = [];
     try {
       const { frameTree } = await cdp.send('Page.getFrameTree');
@@ -73,7 +73,7 @@ export const collectA11yChrome: Collector = async (ctx) => {
           const r = await cdp.send<{ nodes: AXNode[] }>('Accessibility.getFullAXTree', { frameId: f.id });
           frames.push({ frameId: f.id, url: f.url, nodes: r.nodes });
         } catch (e) {
-          result.warnings.push(`A11y-Baum für Frame ${f.url}: ${errMsg(e)}`);
+          result.warnings.push(`A11y tree for frame ${f.url}: ${errMsg(e)}`);
         }
       }
     } catch {
@@ -91,7 +91,7 @@ export const collectA11yChrome: Collector = async (ctx) => {
       null,
       1,
     );
-    ctx.detail(`${main.nodes.length} Knoten`);
+    ctx.detail(`${main.nodes.length} nodes`);
   } finally {
     await cdp.send('Accessibility.disable').catch(() => {});
   }

@@ -1,4 +1,4 @@
-// DOM-Serialisierung im Content Script (inkl. Shadow DOM als <template shadowrootmode>).
+// DOM serialization in the content script (incl. shadow DOM as <template shadowrootmode>).
 import type { ShadowRootInfo } from '../types';
 import { cssPath, getShadowRoot } from './util';
 

@@ -1,8 +1,8 @@
-// Redaction: sensible Werte werden standardmäßig durch [REDACTED] ersetzt.
+// Redaction: sensitive values are replaced with [REDACTED] by default.
 
 export const REDACTED = '[REDACTED]';
 
-/** Header, deren Wert immer entfernt wird. */
+/** Headers whose value is always removed. */
 const SENSITIVE_HEADERS = new Set([
   'authorization',
   'proxy-authorization',
@@ -14,12 +14,12 @@ const SENSITIVE_HEADERS = new Set([
   'x-auth-token',
 ]);
 
-/** Key-Namen, deren Werte wie Tokens behandelt werden. */
+/** Key names whose values are treated as tokens. */
 const SENSITIVE_KEY = /(token|auth|session|secret|passw(or)?d|api[-_]?key|credential|jwt|bearer|csrf|xsrf)/i;
 
-/** JWT: drei Base64url-Teile, der erste beginnt mit "eyJ" (= '{"'). */
+/** JWT: three base64url parts, the first starts with "eyJ" (= '{"'). */
 const JWT = /eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g;
-/** "Bearer xyz" in beliebigem Text */
+/** "Bearer xyz" in any text */
 const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi;
 
 export function isSensitiveHeader(name: string) {
@@ -31,17 +31,17 @@ export function isSensitiveKey(key: string) {
 }
 
 export function redactTokensInString(value: string): string {
-  if (value.length > 5_000_000) return value; // riesige Werte nicht durchsuchen
+  if (value.length > 5_000_000) return value; // do not scan huge values
   return value.replace(JWT, REDACTED).replace(BEARER, `Bearer ${REDACTED}`);
 }
 
-/** Einen einzelnen Storage-Eintrag bereinigen (Key-Name + Token-Muster im Wert). */
+/** Clean a single storage entry (key name + token patterns in the value). */
 export function redactStorageValue(key: string, value: string): string {
   if (isSensitiveKey(key)) return REDACTED;
   return redactTokensInString(value);
 }
 
-/** Beliebige JSON-Struktur rekursiv bereinigen (z. B. IndexedDB-Datensätze). */
+/** Recursively clean any JSON structure (e.g. IndexedDB records). */
 export function redactDeep(value: unknown, keyHint = '', depth = 0): unknown {
   if (depth > 50) return value;
   if (typeof value === 'string') return keyHint && isSensitiveKey(keyHint) ? REDACTED : redactTokensInString(value);

@@ -1,11 +1,11 @@
-// ZIP bauen und lokal herunterladen – keine Daten verlassen den Rechner.
+// Build the ZIP and download it locally – no data leaves the machine.
 import JSZip from 'jszip';
 import { browser } from 'wxt/browser';
 import { IS_FIREFOX } from './areas';
 import { bytesToBase64 } from './fetcher';
 import type { FileContent } from './types';
 
-/** Bereits komprimierte Formate nicht erneut komprimieren. */
+/** Do not re-compress formats that are already compressed. */
 const STORE_EXT = /\.(png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|mp[34]|webm|ogg|zip|gz|br|pdf)$/i;
 
 export async function buildZip(rootName: string, files: Map<string, FileContent>, onProgress: (pct: number) => void): Promise<Uint8Array> {
@@ -21,10 +21,10 @@ export async function buildZip(rootName: string, files: Map<string, FileContent>
   return zip.generateAsync({ type: 'uint8array', streamFiles: true }, (m) => onProgress(m.percent));
 }
 
-// ---------- Chrome: Blob-URL über ein Offscreen-Dokument (Service Worker hat kein URL.createObjectURL) ----------
+// ---------- Chrome: blob URL via an offscreen document (service workers have no URL.createObjectURL) ----------
 
 const OFFSCREEN_URL = '/offscreen.html';
-const CHUNK = 8 * 1024 * 1024; // 8 MB Rohdaten je Nachricht (≈ 11 MB Base64)
+const CHUNK = 8 * 1024 * 1024; // 8 MB of raw data per message (≈ 11 MB base64)
 
 async function ensureOffscreen() {
   const chromeAny = (globalThis as any).chrome;
@@ -33,7 +33,7 @@ async function ensureOffscreen() {
   await chromeAny.offscreen.createDocument({
     url: OFFSCREEN_URL,
     reasons: ['BLOBS'],
-    justification: 'ZIP-Export als Blob-URL für downloads.download bereitstellen',
+    justification: 'Provide the ZIP export as a blob URL for downloads.download',
   });
 }
 
@@ -45,7 +45,7 @@ async function blobUrlViaOffscreen(bytes: Uint8Array): Promise<string> {
     await browser.runtime.sendMessage({ target: 'offscreen', type: 'chunk', id, data });
   }
   const res = (await browser.runtime.sendMessage({ target: 'offscreen', type: 'finish', id, mime: 'application/zip' })) as { url?: string; error?: string };
-  if (!res?.url) throw new Error(res?.error ?? 'Offscreen-Dokument hat keine URL geliefert');
+  if (!res?.url) throw new Error(res?.error ?? 'Offscreen document did not return a URL');
   return res.url;
 }
 
@@ -77,7 +77,7 @@ export async function downloadZip(bytes: Uint8Array, fileName: string): Promise<
         browser.runtime.sendMessage({ target: 'offscreen', type: 'revoke', url }).catch(() => {});
       };
     } catch (e) {
-      console.warn('[F12 Collector] Offscreen fehlgeschlagen, nutze data:-URL', e);
+      console.warn('[F12 Collector] Offscreen failed, falling back to a data: URL', e);
       url = 'data:application/zip;base64,' + bytesToBase64(bytes);
     }
   }

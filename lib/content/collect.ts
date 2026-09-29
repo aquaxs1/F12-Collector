@@ -1,4 +1,4 @@
-// Einstiegspunkt der Datensammlung im Content Script (läuft in jedem Frame).
+// Entry point for data collection in the content script (runs in every frame).
 import type { ContentCollectOptions, FrameData } from '../types';
 import { serializeDocument } from './dom';
 import { collectResources } from './resources';
@@ -23,9 +23,9 @@ export async function collectFrame(opts: ContentCollectOptions): Promise<Omit<Fr
     }
   };
   if (opts.dom) await step('DOM', () => (data.dom = serializeDocument(document)));
-  if (opts.resources) await step('Ressourcen', () => (data.resources = collectResources()));
-  if (opts.storage) await step('Speicher', async () => (data.storage = await collectStorage(opts.indexedDbMaxRecords, opts.maxBodyBytes)));
+  if (opts.resources) await step('Resources', () => (data.resources = collectResources()));
+  if (opts.storage) await step('Storage', async () => (data.storage = await collectStorage(opts.indexedDbMaxRecords, opts.maxBodyBytes)));
   if (opts.styles) await step('Styles', async () => (data.styles = await collectStyles(opts)));
-  if (opts.a11y) await step('Barrierefreiheit', () => (data.a11y = collectA11y()));
+  if (opts.a11y) await step('Accessibility', () => (data.a11y = collectA11y()));
   return data;
 }

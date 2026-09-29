@@ -1,4 +1,4 @@
-// Dünner Wrapper um chrome.debugger (Chrome DevTools Protocol).
+// Thin wrapper around chrome.debugger (Chrome DevTools Protocol).
 import { browser } from 'wxt/browser';
 
 type Listener = (params: any) => void;
@@ -16,7 +16,7 @@ export class CdpSession {
       try {
         l(params);
       } catch (e) {
-        console.warn('[F12 Collector] CDP-Listener-Fehler', method, e);
+        console.warn('[F12 Collector] CDP listener error', method, e);
       }
     }
   };
@@ -47,15 +47,15 @@ export class CdpSession {
     }
   }
 
-  /** CDP-Befehl senden. Jeder Befehl hat ein Timeout, damit ein hängender Renderer den Export nicht blockiert. */
+  /** Send a CDP command. Every command has a timeout so a hanging renderer cannot block the export. */
   async send<T = any>(method: string, params?: Record<string, unknown>, timeoutMs = 30000): Promise<T> {
-    if (!this.attached) throw new Error(`Debugger nicht verbunden${this.detachReason ? ` (${this.detachReason})` : ''}`);
+    if (!this.attached) throw new Error(`Debugger not attached${this.detachReason ? ` (${this.detachReason})` : ''}`);
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return (await Promise.race([
         browser.debugger.sendCommand(this.target, method, params),
         new Promise((_, reject) => {
-          timer = setTimeout(() => reject(new Error(`${method}: keine Antwort nach ${Math.round(timeoutMs / 1000)} s`)), timeoutMs);
+          timer = setTimeout(() => reject(new Error(`${method}: no response after ${Math.round(timeoutMs / 1000)} s`)), timeoutMs);
         }),
       ])) as T;
     } finally {
@@ -70,7 +70,7 @@ export class CdpSession {
     return () => set!.delete(listener);
   }
 
-  /** Wartet auf ein Event (oder gibt nach timeoutMs undefined zurück). */
+  /** Waits for an event (or returns undefined after timeoutMs). */
   waitFor<T = any>(method: string, timeoutMs: number): Promise<T | undefined> {
     return new Promise((resolve) => {
       const off = this.on(method, (p) => {
@@ -85,12 +85,12 @@ export class CdpSession {
     });
   }
 
-  /** Immer aufrufen – auch im Fehlerfall. Wirft nie. */
+  /** Always call this – even on errors. Never throws. */
   async detach(): Promise<void> {
     try {
       if (this.attached) await browser.debugger.detach(this.target);
     } catch {
-      /* schon getrennt */
+      /* already detached */
     } finally {
       this.attached = false;
       this.removeListeners();

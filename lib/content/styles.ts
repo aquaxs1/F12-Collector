@@ -1,4 +1,4 @@
-// Styles im Content Script: Stylesheets (Fallback ohne CDP) und Computed Styles.
+// Styles in the content script: stylesheets (fallback without CDP) and computed styles.
 import type { ComputedStyleEntry, ContentCollectOptions, FrameData, StylesheetInfo } from '../types';
 import { cssPath, getShadowRoot } from './util';
 
@@ -6,7 +6,7 @@ function sheetText(sheet: CSSStyleSheet): { text?: string; blocked?: boolean } {
   try {
     return { text: Array.from(sheet.cssRules).map((r) => r.cssText).join('\n') };
   } catch {
-    return { blocked: true }; // Cross-Origin ohne CORS
+    return { blocked: true }; // cross-origin without CORS
   }
 }
 
@@ -15,7 +15,7 @@ function ownerOf(sheet: CSSStyleSheet, fallback: string) {
   return n instanceof Element ? cssPath(n) : fallback;
 }
 
-/** Alle Elemente inkl. solcher in (offenen und – wo erlaubt – geschlossenen) Shadow Roots. */
+/** All elements, including those in open and (where allowed) closed shadow roots. */
 export function allElements(root: Document | ShadowRoot = document, out: Element[] = [], roots: ShadowRoot[] = []): Element[] {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
   let n = walker.nextNode();
@@ -57,7 +57,7 @@ export function collectStyleSheets(): StylesheetInfo[] {
   return out;
 }
 
-/** Standardwerte pro Tag aus einem unsichtbaren, leeren iframe. */
+/** Default values per tag from an invisible, empty iframe. */
 class Baseline {
   private frame?: HTMLIFrameElement;
   private cache = new Map<string, Record<string, string>>();

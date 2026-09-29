@@ -1,7 +1,7 @@
-// Netzwerk → network.har (HAR 1.2). Quelle je nach Situation:
-// 1) Aufzeichnung ("Aufzeichnen & neu laden"): CDP (Chrome) bzw. webRequest (Firefox), inkl. Bodies
-// 2) Snapshot aus dem DevTools-Panel: devtools.network.getHAR() + dort gepufferte Bodies
-// 3) Snapshot aus dem Popup: Resource-Timing-API (nur URLs & Zeiten)
+// Network → network.har (HAR 1.2). The source depends on the situation:
+// 1) Recording ("Record & reload"): CDP (Chrome) or webRequest (Firefox), incl. bodies
+// 2) Snapshot from the DevTools panel: devtools.network.getHAR() + bodies buffered there
+// 3) Snapshot from the popup: Resource Timing API (URLs & timings only)
 import type { Collector } from '@/lib/context';
 import { formatBytes } from '@/lib/fetcher';
 import { emptyHar, harBrowser, harCreator, harFromPerformance, redactHar } from '@/lib/har';
@@ -11,15 +11,15 @@ export const collectNetwork: Collector = async (ctx) => {
   const result: CollectorResult = { files: {}, warnings: [] };
   let har: any;
   if (ctx.recordedHar) {
-    ctx.detail('HAR aus Aufzeichnung erstellen');
+    ctx.detail('building HAR from recording');
     const rec = await ctx.recordedHar();
     har = rec.har;
     result.warnings.push(...rec.warnings);
   } else if (ctx.devtools?.har?.entries) {
-    ctx.detail('HAR aus den DevTools übernehmen');
+    ctx.detail('taking HAR from DevTools');
     const log = structuredClone(ctx.devtools.har);
     har = { log: { version: '1.2', ...log, creator: harCreator(), browser: log.browser ?? harBrowser() } };
-    // Bodies aus dem Panel-Puffer zuordnen (gleiche URL + Methode, in Reihenfolge)
+    // Match bodies from the panel buffer (same URL + method, in order)
     const pool = new Map<string, NonNullable<typeof ctx.devtools.bodies>>();
     for (const b of ctx.devtools.bodies ?? []) {
       const k = `${b.method} ${b.url}`;
@@ -36,7 +36,7 @@ export const collectNetwork: Collector = async (ctx) => {
       const size = b.encoding === 'base64' ? b.content.length * 0.75 : b.content.length;
       if (size > ctx.maxBytes) {
         tooLarge++;
-        c.comment = `Body nicht exportiert: ${formatBytes(size)} > Limit`;
+        c.comment = `Body not exported: ${formatBytes(size)} > limit`;
         continue;
       }
       c.text = b.content;
@@ -45,18 +45,18 @@ export const collectNetwork: Collector = async (ctx) => {
     }
     const n = har.log.entries?.length ?? 0;
     result.warnings.push(
-      `Snapshot ohne Aufzeichnung: HAR aus den DevTools (${n} Requests seit dem Öffnen der DevTools, ${attached} mit Body). Für einen vollständigen Mitschnitt "Aufzeichnen & neu laden" verwenden.`,
+      `Snapshot without recording: HAR from DevTools (${n} requests since DevTools was opened, ${attached} with body). Use "Record & reload" for a complete capture.`,
     );
-    if (tooLarge) result.warnings.push(`${tooLarge} Response-Body(s) über dem Größenlimit nicht exportiert.`);
+    if (tooLarge) result.warnings.push(`${tooLarge} response body/bodies above the size limit not exported.`);
   } else {
     har = harFromPerformance(ctx);
     if (!har.log.entries.length) har = emptyHar(ctx);
     result.warnings.push(
-      'Snapshot ohne Aufzeichnung: network.har enthält nur Daten der Resource-Timing-API (URLs, Zeiten, Größen – keine Header, keine Bodies). Für vollständige Daten "Aufzeichnen & neu laden" verwenden oder den Snapshot aus dem DevTools-Panel starten.',
+      'Snapshot without recording: network.har only contains Resource Timing API data (URLs, timings, sizes – no headers, no bodies). For complete data use "Record & reload" or take the snapshot from the DevTools panel.',
     );
   }
   if (ctx.settings.redact) redactHar(har);
   result.files['network.har'] = JSON.stringify(har, null, 1);
-  ctx.detail(`${har.log.entries.length} Requests`);
+  ctx.detail(`${har.log.entries.length} requests`);
   return result;
 };

@@ -1,8 +1,8 @@
 import { collectFrame } from '@/lib/content/collect';
 import type { ContentCollectOptions } from '@/lib/types';
 
-// Das Content Script selbst tut nichts von allein. Der Background ruft über
-// scripting.executeScript (in allen Frames) globalThis.__F12C__.collect(...) auf.
+// The content script does nothing on its own. The background calls
+// globalThis.__F12C__.collect(...) via scripting.executeScript (in all frames).
 export default defineContentScript({
   matches: ['<all_urls>'],
   allFrames: true,
@@ -10,7 +10,7 @@ export default defineContentScript({
   runAt: 'document_idle',
   main() {
     const g = globalThis as any;
-    if (g.__F12C__) return; // bereits geladen (z. B. nachträglich injiziert)
+    if (g.__F12C__) return; // already loaded (e.g. injected later)
     g.__F12C__ = {
       version: 1,
       collect: (opts: ContentCollectOptions) => collectFrame(opts),

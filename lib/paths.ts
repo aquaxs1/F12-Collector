@@ -1,4 +1,4 @@
-// Hilfsfunktionen, um URLs in sichere, eindeutige Pfade im ZIP umzuwandeln.
+// Helpers to turn URLs into safe, unique paths inside the ZIP.
 
 const ILLEGAL = /[<>:"|?*\\\u0000-\u001f]/g;
 
@@ -23,7 +23,7 @@ export function sanitizePath(path: string): string {
     .join('/');
 }
 
-/** Kurzer, stabiler Hash (FNV-1a) für Dateinamen. */
+/** Short, stable hash (FNV-1a) for file names. */
 export function shortHash(input: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
@@ -41,7 +41,7 @@ function insertBeforeExt(path: string, suffix: string): string {
 }
 
 /**
- * Wandelt eine URL in einen Pfad um: https://example.com/js/app.js?v=1
+ * Turns a URL into a path: https://example.com/js/app.js?v=1
  * → <prefix>/example.com/js/app_<hash>.js
  */
 export function urlToPath(url: string, prefix: string, defaultExt = ''): string {
@@ -60,7 +60,7 @@ export function urlToPath(url: string, prefix: string, defaultExt = ''): string 
   return `${prefix}/${host}/${sanitizePath(path)}`;
 }
 
-/** Hält vergebene Pfade fest und hängt bei Kollisionen ~2, ~3 … an. */
+/** Tracks allocated paths and appends ~2, ~3 … on collisions. */
 export class PathAllocator {
   private used = new Set<string>();
   constructor(existing: Iterable<string> = []) {
@@ -80,9 +80,9 @@ export class PathAllocator {
 
 export function hostOf(url: string): string {
   try {
-    return new URL(url).hostname || 'unbekannt';
+    return new URL(url).hostname || 'unknown';
   } catch {
-    return 'unbekannt';
+    return 'unknown';
   }
 }
 
@@ -95,7 +95,7 @@ export function isHttpUrl(url: string | undefined): url is string {
   return !!url && /^https?:\/\//i.test(url);
 }
 
-/** URL ohne #fragment */
+/** URL without #fragment */
 export function stripHash(url: string): string {
   const i = url.indexOf('#');
   return i < 0 ? url : url.slice(0, i);

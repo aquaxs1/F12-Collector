@@ -1,5 +1,5 @@
-// Ressourcen neu laden (Firefox-Fallback, Source Maps, Cross-Origin-Stylesheets).
-// Wird im Background ausgeführt – dort gelten die Host-Permissions, CORS ist kein Problem.
+// Re-download resources (Firefox fallback, source maps, cross-origin stylesheets).
+// Runs in the background, where host permissions apply – CORS is not an issue.
 
 export interface FetchedResource {
   ok: boolean;
@@ -20,11 +20,11 @@ export async function fetchResource(url: string, maxBytes: number, timeoutMs = 2
     const declared = Number(res.headers.get('content-length') ?? NaN);
     if (Number.isFinite(declared) && declared > maxBytes) {
       ctrl.abort();
-      return { ok: false, status: res.status, contentType, size: declared, skippedReason: `größer als Limit (${formatBytes(declared)})` };
+      return { ok: false, status: res.status, contentType, size: declared, skippedReason: `larger than limit (${formatBytes(declared)})` };
     }
     const bytes = await readLimited(res, maxBytes);
     if (!bytes) {
-      return { ok: false, status: res.status, contentType, size: maxBytes + 1, skippedReason: `größer als Limit (> ${formatBytes(maxBytes)})` };
+      return { ok: false, status: res.status, contentType, size: maxBytes + 1, skippedReason: `larger than limit (> ${formatBytes(maxBytes)})` };
     }
     return { ok: res.ok, status: res.status, contentType, bytes, size: bytes.byteLength };
   } catch (e) {
@@ -100,7 +100,7 @@ export function byteLength(content: string | Uint8Array): number {
 
 export function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`${label}: Zeitüberschreitung nach ${Math.round(ms / 1000)} s`)), ms);
+    const t = setTimeout(() => reject(new Error(`${label}: timed out after ${Math.round(ms / 1000)} s`)), ms);
     p.then(
       (v) => {
         clearTimeout(t);
@@ -124,7 +124,7 @@ export function errMsg(e: unknown): string {
   }
 }
 
-/** Führt fn für alle Elemente mit begrenzter Parallelität aus. */
+/** Runs fn for all items with limited concurrency. */
 export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let next = 0;

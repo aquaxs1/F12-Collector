@@ -2,8 +2,8 @@ import { runJob } from '@/lib/job';
 import type { JobState, StartJobMessage } from '@/lib/types';
 import { browser } from 'wxt/browser';
 
-// Background: nimmt Aufträge von Popup/DevTools-Panel an, orchestriert die Collector,
-// baut das ZIP und startet den Download. Fortschritt geht über Ports an alle offenen UIs.
+// Background: accepts jobs from the popup/DevTools panel, orchestrates the collectors,
+// builds the ZIP and starts the download. Progress is sent to all open UIs via ports.
 export default defineBackground(() => {
   let state: JobState = { running: false, steps: [] };
   const ports = new Set<ReturnType<typeof browser.runtime.connect>>();
@@ -33,10 +33,10 @@ export default defineBackground(() => {
           .catch(() => {});
       if (msg?.type === 'start-job') {
         if (state.running) {
-          port.postMessage({ type: 'state', state: { ...state, message: 'Es läuft bereits ein Export.' } });
+          port.postMessage({ type: 'state', state: { ...state, message: 'An export is already running.' } });
           return;
         }
-        state = { running: true, steps: [], tabId: msg.tabId, mode: msg.mode, message: 'Export startet …' };
+        state = { running: true, steps: [], tabId: msg.tabId, mode: msg.mode, message: 'Export starting …' };
         publish(state);
         runJob(msg as StartJobMessage, publish).catch((e) => publish({ ...state, running: false, error: String(e) }));
       }

@@ -1,4 +1,4 @@
-// Netzwerk-Aufzeichnung in Firefox: webRequest-Events + webRequest.filterResponseData für Bodies → HAR 1.2.
+// Network recording in Firefox: webRequest events + webRequest.filterResponseData for bodies → HAR 1.2.
 import type { JobContext } from '@/lib/context';
 import { bytesToBase64, concatBytes, formatBytes, isTextMime } from '@/lib/fetcher';
 import { emptyHar, headerValue, httpVersion, parseCookieHeader, parseSetCookies, queryStringOf, type HarHeader } from '@/lib/har';
@@ -29,7 +29,7 @@ interface Rec {
   responseSize?: number;
 }
 
-/** Typen, deren Bodies nicht abgefangen werden (Streams, große Medien). */
+/** Types whose bodies are not intercepted (streams, large media). */
 const NO_BODY_TYPES = new Set(['media', 'websocket', 'object', 'object_subrequest', 'speculative', 'beacon', 'ping', 'csp_report']);
 
 const toHar = (h?: { name: string; value?: string }[]): HarHeader[] => (h ?? []).map((x) => ({ name: x.name, value: x.value ?? '' }));
@@ -113,7 +113,7 @@ export class WebRequestRecorder {
           r.end = d.timeStamp;
           r.headersTs ??= d.timeStamp;
           if (d.responseHeaders) r.responseHeaders = toHar(d.responseHeaders);
-          this.current.delete(d.requestId); // der nächste Hop bekommt einen neuen Eintrag
+          this.current.delete(d.requestId); // the next hop gets a new entry
         }
       },
       ['responseHeaders'],
@@ -178,7 +178,7 @@ export class WebRequestRecorder {
         rec.bodyState = 'toolarge';
         chunks.length = 0;
         try {
-          filter.disconnect(); // Rest fließt ungefiltert weiter
+          filter.disconnect(); // the rest flows through unfiltered
         } catch {
           /* ignore */
         }
@@ -261,10 +261,10 @@ export class WebRequestRecorder {
         }
       } else if (r.bodyState === 'toolarge') {
         tooLarge++;
-        content.comment = `Body nicht exportiert: größer als Limit ${formatBytes(this.maxBytes)}`;
-        ctx.skipped.push({ path: `network.har → ${r.url}`, reason: 'Response-Body größer als Limit' });
-      } else if (r.bodyState === 'error') content.comment = `Body nicht verfügbar: ${r.bodyError ?? 'Fehler'}`;
-      else if (r.bodyState === 'pending') content.comment = 'Body beim Export noch nicht vollständig';
+        content.comment = `Body not exported: larger than limit ${formatBytes(this.maxBytes)}`;
+        ctx.skipped.push({ path: `network.har → ${r.url}`, reason: 'response body larger than limit' });
+      } else if (r.bodyState === 'error') content.comment = `Body not available: ${r.bodyError ?? 'error'}`;
+      else if (r.bodyState === 'pending') content.comment = 'Body not complete at export time';
 
       let postData: any;
       if (r.requestBody?.formData) {
@@ -324,12 +324,12 @@ export class WebRequestRecorder {
         _resourceType: mapType(r.type),
         _fromCache: r.fromCache ? 'disk' : undefined,
       };
-      if (r.end === undefined) entry.comment = 'Request war beim Export noch nicht abgeschlossen';
+      if (r.end === undefined) entry.comment = 'Request had not finished at export time';
       har.log.entries.push(entry);
     }
-    har.log.comment = 'Aufgezeichnet mit webRequest + filterResponseData (Firefox) während "Aufzeichnen & neu laden". Timings sind vereinfacht (kein DNS/Connect/SSL).';
-    if (tooLarge) warnings.push(`${tooLarge} Response-Body(s) über dem Größenlimit nicht exportiert.`);
-    warnings.push('Firefox: Timings vereinfacht (DNS/Connect/SSL nicht verfügbar), Requests von Service Workern fehlen.');
+    har.log.comment = 'Recorded with webRequest + filterResponseData (Firefox) during "Record & reload". Timings are simplified (no DNS/connect/SSL).';
+    if (tooLarge) warnings.push(`${tooLarge} response body/bodies above the size limit not exported.`);
+    warnings.push('Firefox: simplified timings (DNS/connect/SSL not available), service worker requests are missing.');
     return { har, warnings };
   }
 }

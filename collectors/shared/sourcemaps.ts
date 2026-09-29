@@ -1,28 +1,28 @@
-// Source Maps auflösen und Originaldateien rekonstruieren (Chrome & Firefox gleich).
+// Resolve source maps and reconstruct original files (same for Chrome & Firefox).
 import type { JobContext, SourceMapRecord } from '@/lib/context';
 import { base64ToBytes, decodeUtf8, errMsg, fetchResource, mapLimit } from '@/lib/fetcher';
 import { PathAllocator, sanitizePath, urlToPath } from '@/lib/paths';
 import type { CollectorResult } from '@/lib/types';
 
 export interface SourceMapCandidate {
-  /** URL der generierten Datei (JS oder CSS) */
+  /** URL of the generated file (JS or CSS) */
   url: string;
   text?: string;
-  /** bereits bekannte sourceMappingURL (z. B. aus CDP scriptParsed) */
+  /** already known sourceMappingURL (e.g. from CDP scriptParsed) */
   sourceMapURL?: string;
 }
 
 const SMURL = /\/[\/*][#@]\s*sourceMappingURL\s*=\s*([^\s'"*]+)/g;
 
 export function findSourceMappingURL(text: string): string | undefined {
-  // Nur das Ende durchsuchen – dort steht der Kommentar praktisch immer
+  // Only scan the end – that is practically always where the comment is
   const tail = text.length > 20000 ? text.slice(-20000) : text;
   let last: string | undefined;
   for (const m of tail.matchAll(SMURL)) last = m[1];
   return last;
 }
 
-/** Pfad für eine Originaldatei aus einer Source Map, z. B. webpack://app/./src/x.ts → sources/original/webpack/app/src/x.ts */
+/** Path for an original file from a source map, e.g. webpack://app/./src/x.ts → sources/original/webpack/app/src/x.ts */
 export function originalPath(source: string): string {
   let s = source.replace(/\?.*$/, '');
   const scheme = /^([a-z][a-z0-9+.-]*):\/\/+/i.exec(s);
@@ -40,7 +40,7 @@ export function originalPath(source: string): string {
     }
     parts.push(p);
   }
-  return `sources/original/${sanitizePath(parts.join('/')) || 'unbenannt'}`;
+  return `sources/original/${sanitizePath(parts.join('/')) || 'unnamed'}`;
 }
 
 interface RawMap {
@@ -68,7 +68,7 @@ export async function extractSourceMaps(
   const records: SourceMapRecord[] = [];
   const seenMaps = new Set<string>();
   const writtenOriginals = new Set<string>();
-  let fetchBudget = 500; // max. nachgeladene Originaldateien ohne sourcesContent
+  let fetchBudget = 500; // max. original files downloaded when sourcesContent is missing
   const jobs: { cand: SourceMapCandidate; ref: string }[] = [];
   for (const cand of candidates) {
     const ref = cand.sourceMapURL || (cand.text ? findSourceMappingURL(cand.text) : undefined);
@@ -80,11 +80,11 @@ export async function extractSourceMaps(
   }
   const limited = jobs.slice(0, ctx.settings.maxSourceMaps);
   if (jobs.length > limited.length)
-    result.warnings.push(`Nur ${limited.length} von ${jobs.length} Source Maps verarbeitet (Limit in den Einstellungen).`);
+    result.warnings.push(`Only ${limited.length} of ${jobs.length} source maps processed (limit in the settings).`);
 
   let done = 0;
   await mapLimit(limited, 4, async ({ cand, ref }) => {
-    ctx.detail(`Source Maps ${++done}/${limited.length}`);
+    ctx.detail(`source maps ${++done}/${limited.length}`);
     const rec: SourceMapRecord = { forUrl: cand.url, mapUrl: ref.startsWith('data:') ? '(inline data:-URL)' : resolve(ref, cand.url) ?? ref, sources: 0, reconstructed: 0 };
     records.push(rec);
     try {
@@ -98,7 +98,7 @@ export async function extractSourceMaps(
         mapPathUrl = cand.url;
       } else {
         const abs = resolve(ref, cand.url);
-        if (!abs || !/^https?:/i.test(abs)) throw new Error(`nicht ladbare URL ${ref}`);
+        if (!abs || !/^https?:/i.test(abs)) throw new Error(`URL cannot be downloaded: ${ref}`);
         const res = await fetchResource(abs, ctx.maxBytes);
         if (!res.bytes) throw new Error(res.skippedReason ?? res.error ?? `HTTP ${res.status}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -145,7 +145,7 @@ export async function extractSourceMaps(
     }
   });
   const failed = records.filter((r) => r.error);
-  if (failed.length) result.warnings.push(`${failed.length} Source Map(s) konnten nicht geladen werden (Details in sources/sourcemaps/index.json).`);
+  if (failed.length) result.warnings.push(`${failed.length} source map(s) could not be loaded (details in sources/sourcemaps/index.json).`);
   if (records.length) result.files['sources/sourcemaps/index.json'] = JSON.stringify(records, null, 2);
   return records;
 }

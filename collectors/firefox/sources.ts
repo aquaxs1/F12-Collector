@@ -1,11 +1,11 @@
-// Quellcode (Fallback/Firefox): Ressourcen per fetch neu laden, Inline-Scripts aus dem DOM.
+// Sources (fallback/Firefox): re-download resources via fetch, inline scripts from the DOM.
 import { extractSourceMaps, type SourceMapCandidate } from '@/collectors/shared/sourcemaps';
 import type { Collector, ScriptRecord } from '@/lib/context';
 import { decodeUtf8, fetchResource, formatBytes, isTextMime, mapLimit } from '@/lib/fetcher';
 import { PathAllocator, isHttpUrl, stripHash, urlToPath } from '@/lib/paths';
 import type { CollectorResult } from '@/lib/types';
 
-/** Ressourcentypen aus der Resource-Timing-API, die gefahrlos erneut geladen werden (GET, keine API-Aufrufe). */
+/** Resource types from the Resource Timing API that are safe to re-download (GET, no API calls). */
 const REFETCH_TYPES = new Set(['script', 'link', 'css', 'img', 'iframe', 'frame', 'other', 'navigation', 'font', 'image']);
 
 function extOf(url: string, mime: string): string {
@@ -22,7 +22,7 @@ export const collectSourcesFallback: Collector = async (ctx) => {
   const scripts: ScriptRecord[] = [];
   const candidates: SourceMapCandidate[] = [];
 
-  // 1) Alle URLs sammeln
+  // 1) Collect all URLs
   const urls = new Map<string, 'document' | 'script' | 'stylesheet' | 'other'>();
   for (const f of ctx.frames) {
     if (isHttpUrl(f.url)) urls.set(stripHash(f.url), 'document');
@@ -32,15 +32,15 @@ export const collectSourcesFallback: Collector = async (ctx) => {
     for (const s of r.stylesheets) if (isHttpUrl(s.href)) urls.set(s.href, 'stylesheet');
     for (const p of r.performance) if (isHttpUrl(p.name) && REFETCH_TYPES.has(p.initiatorType) && !urls.has(p.name)) urls.set(p.name, 'other');
   }
-  if (!ctx.frames.some((f) => f.resources)) result.warnings.push('Keine Ressourcenliste aus dem Content Script – nur die Seiten-URL wird geladen.');
+  if (!ctx.frames.some((f) => f.resources)) result.warnings.push('No resource list from the content script – only the page URL is downloaded.');
   if (!urls.size && isHttpUrl(ctx.url)) urls.set(ctx.url, 'document');
 
-  // 2) Neu laden (aus dem Browser-Cache, falls vorhanden)
+  // 2) Re-download (from the browser cache, if available)
   const list = Array.from(urls.entries());
   let done = 0;
   const index: { url: string; path?: string; kind: string; size?: number; status?: number; skipped?: string }[] = [];
   await mapLimit(list, 6, async ([url, kind]) => {
-    ctx.detail(`Ressourcen laden ${++done}/${list.length}`);
+    ctx.detail(`downloading resources ${++done}/${list.length}`);
     const res = await fetchResource(url, ctx.maxBytes);
     if (!res.bytes || !res.ok) {
       const reason = res.skippedReason ?? res.error ?? `HTTP ${res.status}`;
@@ -60,7 +60,7 @@ export const collectSourcesFallback: Collector = async (ctx) => {
     }
   });
 
-  // 3) Inline-Scripts und -Styles aus dem DOM
+  // 3) Inline scripts and styles from the DOM
   for (const f of ctx.frames) {
     const r = f.resources;
     if (!r) continue;
@@ -85,9 +85,9 @@ export const collectSourcesFallback: Collector = async (ctx) => {
   ctx.shared.sourceMaps = await extractSourceMaps(ctx, candidates, result, alloc);
 
   index.sort((a, b) => a.url.localeCompare(b.url));
-  result.files['sources/index.json'] = JSON.stringify({ method: 'fetch (neu geladen, bevorzugt aus dem Browser-Cache)', resources: index }, null, 2);
+  result.files['sources/index.json'] = JSON.stringify({ method: 'fetch (re-downloaded, preferably from the browser cache)', resources: index }, null, 2);
   const skipped = index.filter((i) => i.skipped).length;
-  if (skipped) result.warnings.push(`${skipped} Ressource(n) nicht exportiert (Limit ${formatBytes(ctx.maxBytes)} oder Ladefehler) – siehe sources/index.json.`);
-  result.warnings.push('Quellcode wurde per fetch neu geladen; dynamisch erzeugter Code (eval, new Function) ist nicht enthalten.');
+  if (skipped) result.warnings.push(`${skipped} resource(s) not exported (limit ${formatBytes(ctx.maxBytes)} or download error) – see sources/index.json.`);
+  result.warnings.push('Sources were re-downloaded via fetch; dynamically created code (eval, new Function) is not included.');
   return result;
 };

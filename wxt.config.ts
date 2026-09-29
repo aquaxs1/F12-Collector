@@ -1,6 +1,6 @@
 import { defineConfig } from 'wxt';
 
-// F12 Collector – WXT-Konfiguration für Chrome und Firefox (beide Manifest V3).
+// F12 Collector – WXT configuration for Chrome and Firefox (both Manifest V3).
 export default defineConfig({
   manifestVersion: 3,
   manifest: ({ browser }) => {
@@ -9,7 +9,7 @@ export default defineConfig({
       name: 'F12 Collector',
       short_name: 'F12 Collector',
       description:
-        'Exportiert alles aus den DevTools (DOM, Quellcode, Netzwerk, Styles, Speicher, Barrierefreiheit …) als ZIP – lokal, ohne Upload.',
+        'Exports everything you see in DevTools (DOM, sources, network, styles, storage, accessibility …) as a ZIP – locally, no uploads.',
       action: {
         default_title: 'F12 Collector',
         default_icon: { 16: 'icon/16.png', 32: 'icon/32.png', 48: 'icon/48.png', 128: 'icon/128.png' },

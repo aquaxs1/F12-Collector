@@ -1,5 +1,5 @@
-// Orchestrierung eines Exports: Debugger verbinden, (optional) aufzeichnen & neu laden,
-// Content Script in allen Frames, Collector isoliert ausführen, ZIP bauen, Download starten.
+// Orchestrates an export: attach the debugger, (optionally) record & reload,
+// run the content script in all frames, run each collector in isolation, build the ZIP, start the download.
 import { browser } from 'wxt/browser';
 import { collectors } from '@/collectors';
 import { CdpSession } from '@/collectors/chrome/cdp';
@@ -12,7 +12,7 @@ import { startRecording, type NetworkRecording } from './recording';
 import { hostOf, sanitizeSegment, timestampForFile } from './paths';
 import type { Area, FileContent, JobState, ProgressStep, StartJobMessage, StepStatus } from './types';
 
-/** Nur diese Bereiche unterliegen dem Größenlimit pro Datei (Bodies im HAR prüft der Netzwerk-Collector selbst). */
+/** Only these areas are subject to the per-file size limit (the network collector checks HAR bodies itself). */
 const LIMITED_PREFIXES = ['sources/', 'styles/stylesheets/', 'storage/cache/', 'dom/frames/'];
 const COLLECTOR_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -25,18 +25,18 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
   const selected = areaInfos.filter((a) => settings.areas[a.id] && a.support !== 'unavailable').map((a) => a.id);
 
   const steps: ProgressStep[] = [
-    { id: 'prepare', label: 'Vorbereitung', status: 'pending' },
-    ...(mode === 'record' ? [{ id: 'record', label: 'Aufzeichnen & neu laden', status: 'pending' as StepStatus }] : []),
-    { id: 'frames', label: 'Seite auslesen (alle Frames)', status: 'pending' },
+    { id: 'prepare', label: 'Preparation', status: 'pending' },
+    ...(mode === 'record' ? [{ id: 'record', label: 'Record & reload', status: 'pending' as StepStatus }] : []),
+    { id: 'frames', label: 'Read page (all frames)', status: 'pending' },
     ...areaInfos.map((a) => ({
       id: a.id,
       label: a.label,
       status: (selected.includes(a.id) ? 'pending' : 'skipped') as StepStatus,
       detail: a.support === 'unavailable' ? a.note : undefined,
     })),
-    { id: 'zip', label: 'ZIP erstellen & herunterladen', status: 'pending' },
+    { id: 'zip', label: 'Create & download ZIP', status: 'pending' },
   ];
-  const state: JobState = { running: true, tabId, mode, steps, message: 'Export läuft …' };
+  const state: JobState = { running: true, tabId, mode, steps, message: 'Export running …' };
   const emit = () => publish(structuredClone(state));
   const setStep = (id: string, status: StepStatus, detail?: string) => {
     const s = steps.find((x) => x.id === id);
@@ -60,17 +60,17 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
   const files = new Map<string, FileContent>();
   let cdp: CdpSession | null = null;
   let recording: NetworkRecording | null = null;
-  // Service Worker (Chrome) bzw. Event Page (Firefox) während langer Exporte wach halten
+  // Keep the service worker (Chrome) / event page (Firefox) alive during long exports
   const keepAlive = setInterval(() => browser.runtime.getPlatformInfo().catch(() => {}), 20000);
 
   try {
-    // ---------- Vorbereitung ----------
+    // ---------- Preparation ----------
     setStep('prepare', 'running');
     const tab = await browser.tabs.get(tabId);
     const url = tab.url ?? '';
     state.url = url;
     if (!/^(https?|file):/i.test(url))
-      throw new Error(`Diese Seite kann nicht exportiert werden (${url || 'unbekannte URL'}). Browser-interne Seiten sind für Extensions gesperrt.`);
+      throw new Error(`This page cannot be exported (${url || 'unknown URL'}). Internal browser pages are off-limits for extensions.`);
 
     const ctx: JobContext = {
       tabId,
@@ -90,32 +90,32 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
     };
 
     if (!IS_FIREFOX && (mode === 'record' || selected.some((a) => a !== 'storage'))) {
-      detail('Debugger verbinden');
+      detail('Attaching debugger');
       cdp = new CdpSession(tabId);
       try {
         await cdp.attach();
         ctx.cdp = cdp;
       } catch (e) {
         cdp = null;
-        warnings.push(`Chrome-Debugger konnte nicht verbunden werden (${errMsg(e)}). Es werden die Content-Script-Fallbacks verwendet.`);
+        warnings.push(`Could not attach the Chrome debugger (${errMsg(e)}). Using the content script fallbacks instead.`);
       }
     }
-    setStep('prepare', 'done', ctx.cdp ? 'Debugger verbunden' : IS_FIREFOX ? 'Firefox-Modus' : 'ohne Debugger');
+    setStep('prepare', 'done', ctx.cdp ? 'debugger attached' : IS_FIREFOX ? 'Firefox mode' : 'without debugger');
 
-    // ---------- Aufzeichnen & neu laden ----------
+    // ---------- Record & reload ----------
     if (mode === 'record') {
       current = 'record';
-      setStep('record', 'running', 'Listener aktivieren');
+      setStep('record', 'running', 'enabling listeners');
       recording = await startRecording(ctx);
-      detail('Seite wird neu geladen');
+      detail('reloading page');
       const info = await recording.reloadAndWait((t) => detail(t));
       ctx.url = (await browser.tabs.get(tabId)).url ?? ctx.url;
       state.url = ctx.url;
       setStep('record', info.timedOut ? 'warning' : 'done', info.summary);
-      if (info.timedOut) warnings.push(`Aufzeichnung: ${info.summary}`);
+      if (info.timedOut) warnings.push(`Recording: ${info.summary}`);
     }
 
-    // ---------- Chrome: Debugger-Zustand (pausiert?) + Script-Liste ----------
+    // ---------- Chrome: debugger state (paused?) + script list ----------
     if (ctx.cdp) {
       const parsed: any[] = ctx.shared.parsedScripts ?? [];
       const offParsed = ctx.cdp.on('Debugger.scriptParsed', (p) => parsed.push(p));
@@ -125,10 +125,10 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
         await ctx.cdp.send('Debugger.enable', { maxScriptsCacheSize: 100_000_000 });
         await new Promise((r) => setTimeout(r, 400));
         ctx.shared.parsedScripts = parsed;
-        // Eigene Session soll die Seite nie anhalten (z. B. durch "debugger;"-Anweisungen)
+        // Our own session must never pause the page (e.g. through "debugger;" statements)
         if (!ctx.shared.pausedEvent) await ctx.cdp.send('Debugger.setSkipAllPauses', { skip: true }).catch(() => {});
       } catch (e) {
-        warnings.push(`Debugger.enable fehlgeschlagen: ${errMsg(e)}`);
+        warnings.push(`Debugger.enable failed: ${errMsg(e)}`);
       } finally {
         offParsed();
         offPaused();
@@ -136,25 +136,25 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
       }
     }
 
-    // ---------- Content Script in allen Frames ----------
+    // ---------- Content script in all frames ----------
     current = 'frames';
     setStep('frames', 'running');
     if (ctx.shared.pausedEvent) {
-      setStep('frames', 'warning', 'übersprungen – Seite ist im Debugger pausiert');
-      warnings.push('Die Seite ist im Debugger pausiert: Content Scripts können nicht laufen. localStorage/IndexedDB/Computed Styles und Frame-Inhalte fehlen daher.');
+      setStep('frames', 'warning', 'skipped – page is paused in the debugger');
+      warnings.push('The page is paused in the debugger: content scripts cannot run, so localStorage/IndexedDB/computed styles and frame contents are missing.');
     } else {
       try {
         const res = await collectFromFrames(tabId, contentOptions(ctx, selected), 60000);
         ctx.frames = res.frames;
         warnings.push(...res.warnings);
-        setStep('frames', res.frames.length ? 'done' : 'warning', `${res.frames.length} Frame(s)`);
+        setStep('frames', res.frames.length ? 'done' : 'warning', `${res.frames.length} frame(s)`);
       } catch (e) {
         warnings.push(`Content Script: ${errMsg(e)}`);
         setStep('frames', 'error', errMsg(e));
       }
     }
 
-    // ---------- Collector (jeder isoliert) ----------
+    // ---------- Collectors (each isolated) ----------
     for (const info of areaInfos) {
       const area = info.id;
       if (info.support === 'unavailable') {
@@ -171,7 +171,7 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
       const collector = collectors[area];
       const report = (areaReport[area] = { selected: true, status: 'ok', files: 0, warnings: [] as string[], durationMs: 0, note: info.note });
       try {
-        if (!collector) throw new Error('In diesem Browser nicht implementiert');
+        if (!collector) throw new Error('Not implemented in this browser');
         const res = await withTimeout(
           area === 'network' ? collector({ ...ctx, recordedHar: recording ? () => recording!.toHar(ctx) : undefined }) : collector(ctx),
           COLLECTOR_TIMEOUT_MS,
@@ -181,7 +181,7 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
           if (LIMITED_PREFIXES.some((p) => path.startsWith(p)) && !path.endsWith('.json')) {
             const size = typeof content === 'string' ? content.length : content.byteLength;
             if (size > ctx.maxBytes) {
-              ctx.skipped.push({ path, reason: `größer als Limit (${formatBytes(size)})`, size });
+              ctx.skipped.push({ path, reason: `larger than limit (${formatBytes(size)})`, size });
               continue;
             }
           }
@@ -190,17 +190,17 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
         }
         report.warnings = res.warnings;
         report.status = res.warnings.length ? 'warning' : 'ok';
-        setStep(area, res.warnings.length ? 'warning' : 'done', `${report.files} Datei(en)${res.warnings.length ? `, ${res.warnings.length} Hinweis(e)` : ''}`);
+        setStep(area, res.warnings.length ? 'warning' : 'done', `${report.files} file(s)${res.warnings.length ? `, ${res.warnings.length} note(s)` : ''}`);
       } catch (e) {
         report.status = 'error';
-        report.warnings.push(`Fehler: ${errMsg(e)}`);
+        report.warnings.push(`Error: ${errMsg(e)}`);
         setStep(area, 'error', errMsg(e));
       }
       report.durationMs = Date.now() - t0;
       warnings.push(...report.warnings.map((w) => `[${info.label}] ${w}`));
     }
 
-    // Debugger immer trennen, bevor das ZIP gebaut wird
+    // Always detach the debugger before building the ZIP
     await recording?.stop();
     recording = null;
     await cdp?.detach();
@@ -220,7 +220,7 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
             ? a.note
             : areaReport[a.id]?.status === 'error'
               ? areaReport[a.id]!.warnings.join('; ')
-              : `eingeschränkt: ${a.note}`,
+              : `limited: ${a.note}`,
       }));
     const manifest = {
       tool: 'F12 Collector',
@@ -231,26 +231,26 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
       title: ctx.title,
       createdAt: started.toISOString(),
       durationMs: Date.now() - started.getTime(),
-      mode: mode === 'record' ? 'Aufzeichnen & neu laden' : 'Snapshot',
+      mode: mode === 'record' ? 'Record & reload' : 'Snapshot',
       startedFrom: msg.source,
       activeAreas: selected,
       areas: areaReport,
       missing,
       redaction: settings.redact
-        ? { enabled: true, note: 'Cookie-Werte, Authorization/Cookie/Set-Cookie-Header und token-ähnliche Werte wurden durch [REDACTED] ersetzt.' }
-        : { enabled: false, note: 'ACHTUNG: Export enthält ungeschwärzte Cookies, Tokens und Auth-Header.' },
+        ? { enabled: true, note: 'Cookie values, Authorization/Cookie/Set-Cookie headers and token-like values were replaced with [REDACTED].' }
+        : { enabled: false, note: 'WARNING: this export contains unredacted cookies, tokens and auth headers.' },
       settings,
       frames: ctx.frames.map((f) => ({ frameId: f.frameId, url: f.url, errors: f.errors })),
       warnings,
       skippedFiles: ctx.skipped,
       fileCount: files.size + 1,
       totalSize: formatBytes(Array.from(files.values()).reduce((n, c) => n + (typeof c === 'string' ? c.length : c.byteLength), 0)),
-      privacy: 'Alle Daten wurden lokal gesammelt. F12 Collector lädt nichts hoch und sendet keine Telemetrie.',
+      privacy: 'All data was collected locally. F12 Collector uploads nothing and sends no telemetry.',
     };
     files.set('manifest.json', JSON.stringify(manifest, null, 2));
-    detail('komprimieren …');
-    const zipBytes = await buildZip(rootName, files, (pct) => detail(`komprimieren … ${Math.round(pct)} %`));
-    detail(`Download starten (${formatBytes(zipBytes.byteLength)})`);
+    detail('compressing …');
+    const zipBytes = await buildZip(rootName, files, (pct) => detail(`compressing … ${Math.round(pct)} %`));
+    detail(`starting download (${formatBytes(zipBytes.byteLength)})`);
     await downloadZip(zipBytes, `${rootName}.zip`);
     setStep('zip', 'done', `${rootName}.zip (${formatBytes(zipBytes.byteLength)})`);
 
@@ -261,14 +261,14 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
     state.warnings = warnings.slice(0, 100);
     state.skippedCount = ctx.skipped.length;
     state.missing = missing.map((m) => ({ label: m.label, reason: m.reason }));
-    state.message = warnings.length ? `Fertig – mit ${warnings.length} Hinweis(en), siehe manifest.json` : 'Fertig!';
+    state.message = warnings.length ? `Done – with ${warnings.length} note(s), see manifest.json` : 'Done!';
     emit();
   } catch (e) {
     const s = steps.find((x) => x.id === current);
     if (s) s.status = 'error';
     state.running = false;
     state.error = errMsg(e);
-    state.message = 'Export fehlgeschlagen';
+    state.message = 'Export failed';
     emit();
   } finally {
     clearInterval(keepAlive);

@@ -7,7 +7,7 @@ export interface SkippedFile {
   size?: number;
 }
 
-/** Ein gefundenes Script (für Debugger-Bereich und Source Maps). */
+/** A discovered script (for the debugger area and source maps). */
 export interface ScriptRecord {
   id?: string;
   url: string;
@@ -29,7 +29,7 @@ export interface SourceMapRecord {
   error?: string;
 }
 
-/** Alles, was ein Collector über den laufenden Export wissen muss. */
+/** Everything a collector needs to know about the running export. */
 export interface JobContext {
   tabId: number;
   url: string;
@@ -37,26 +37,26 @@ export interface JobContext {
   mode: RunMode;
   settings: Settings;
   startedAt: Date;
-  /** Ergebnisse des Content Scripts aus allen Frames (frameId 0 = Hauptframe). */
+  /** Content script results from all frames (frameId 0 = main frame). */
   frames: FrameData[];
-  /** Nur Chrome: verbundene CDP-Session (null, wenn nicht verfügbar). */
+  /** Chrome only: attached CDP session (null if unavailable). */
   cdp: CdpSession | null;
-  /** Nur Firefox: Cookie-Store des Tabs (Container). */
+  /** Firefox only: the tab's cookie store (container). */
   cookieStoreId?: string;
   devtools?: DevtoolsExtras;
-  /** Aufgezeichnete Netzwerkdaten ("Aufzeichnen & neu laden"). */
+  /** Recorded network data ("Record & reload"). */
   recordedHar?: () => Promise<{ har: any; warnings: string[] }>;
   shared: {
     scripts?: ScriptRecord[];
     sourceMaps?: SourceMapRecord[];
-    /** CDP Debugger.paused-Event, falls die Seite pausiert war. */
+    /** CDP Debugger.paused event, if the page was paused. */
     pausedEvent?: any;
-    /** CDP Debugger.scriptParsed-Events */
+    /** CDP Debugger.scriptParsed events */
     parsedScripts?: any[];
   };
   maxBytes: number;
   skipped: SkippedFile[];
-  /** Detailtext in der Fortschrittsanzeige aktualisieren. */
+  /** Update the detail text in the progress display. */
   detail(text: string): void;
 }
 

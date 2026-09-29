@@ -1,5 +1,5 @@
-// Webspeicher (Chrome & Firefox gleich): Cookies inkl. HttpOnly über die cookies-API,
-// local/sessionStorage, IndexedDB und Cache Storage aus dem Content Script.
+// Storage (same for Chrome & Firefox): cookies incl. HttpOnly via the cookies API,
+// local/sessionStorage, IndexedDB and Cache Storage from the content script.
 import type { Collector } from '@/lib/context';
 import { base64ToBytes, errMsg } from '@/lib/fetcher';
 import { PathAllocator, isHttpUrl, sanitizeSegment, urlToPath } from '@/lib/paths';
@@ -18,19 +18,19 @@ async function getCookies(urls: string[], storeId: string | undefined, topUrl: s
     try {
       add(await browser.cookies.getAll(base as any));
     } catch (e) {
-      // Firefox mit First-Party-Isolation verlangt firstPartyDomain
+      // Firefox with first-party isolation requires firstPartyDomain
       try {
         add(await browser.cookies.getAll({ ...base, firstPartyDomain: null } as any));
       } catch {
-        warnings.push(`Cookies für ${url}: ${errMsg(e)}`);
+        warnings.push(`Cookies for ${url}: ${errMsg(e)}`);
       }
     }
-    // Partitionierte Cookies (CHIPS)
+    // Partitioned cookies (CHIPS)
     try {
       const topLevelSite = new URL(topUrl).origin;
       add(await browser.cookies.getAll({ ...base, partitionKey: { topLevelSite } } as any));
     } catch {
-      /* ältere Browser */
+      /* older browsers */
     }
   }
   return Array.from(all.values());
@@ -51,7 +51,7 @@ export const collectStorage: Collector = async (ctx) => {
     2,
   );
 
-  // Web Storage je Origin
+  // Web storage per origin
   ctx.detail('local/sessionStorage, IndexedDB, Cache Storage');
   const local: Record<string, unknown> = {};
   const session: Record<string, unknown> = {};
@@ -87,7 +87,7 @@ export const collectStorage: Collector = async (ctx) => {
         });
         if (db.error) result.warnings.push(`IndexedDB "${db.name}" (${origin}): ${db.error}`);
         if (db.stores.some((st) => st.truncated))
-          result.warnings.push(`IndexedDB "${db.name}" (${origin}): nicht alle Datensätze exportiert (Limit ${ctx.settings.indexedDbMaxRecords} pro Store).`);
+          result.warnings.push(`IndexedDB "${db.name}" (${origin}): not all records exported (limit ${ctx.settings.indexedDbMaxRecords} per store).`);
       }
     } else result.warnings.push(`IndexedDB (${origin}): ${s.indexedDB.__error}`);
 
@@ -115,10 +115,10 @@ export const collectStorage: Collector = async (ctx) => {
         cacheIndex.push({ origin, cache: cache.name, entries: cache.entries.length, dir: dir.replace(/^storage\/cache\//, '') });
         if (cache.error) result.warnings.push(`Cache "${cache.name}" (${origin}): ${cache.error}`);
       }
-    } else if (!/nicht verfügbar/.test(s.cache.__error)) result.warnings.push(`Cache Storage (${origin}): ${s.cache.__error}`);
+    } else if (!/not available/.test(s.cache.__error)) result.warnings.push(`Cache Storage (${origin}): ${s.cache.__error}`);
   }
 
-  if (!seenOrigins.size) result.warnings.push('Kein Content-Script-Ergebnis – local/sessionStorage, IndexedDB und Cache Storage fehlen.');
+  if (!seenOrigins.size) result.warnings.push('No content script result – local/sessionStorage, IndexedDB and Cache Storage are missing.');
   result.files['storage/local.json'] = JSON.stringify(local, null, 2);
   result.files['storage/session.json'] = JSON.stringify(session, null, 2);
   result.files['storage/indexeddb/index.json'] = JSON.stringify(idbIndex, null, 2);

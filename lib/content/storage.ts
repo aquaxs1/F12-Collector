@@ -1,4 +1,4 @@
-// Webspeicher eines Frames: localStorage, sessionStorage, IndexedDB, Cache Storage.
+// Web storage of a frame: localStorage, sessionStorage, IndexedDB, Cache Storage.
 import type { CacheDump, IndexedDbDump } from '../types';
 import { bytesToBase64, errText, toJsonSafe } from './util';
 
@@ -26,11 +26,11 @@ function req<T>(r: IDBRequest<T>): Promise<T> {
 function openDb(name: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const r = indexedDB.open(name);
-    // Falls die DB nicht (mehr) existiert, nichts anlegen
+    // If the DB does not exist (anymore), do not create it
     r.onupgradeneeded = () => r.transaction?.abort();
     r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error ?? new Error('open fehlgeschlagen'));
-    r.onblocked = () => reject(new Error('blockiert'));
+    r.onerror = () => reject(r.error ?? new Error('open failed'));
+    r.onblocked = () => reject(new Error('blocked'));
   });
 }
 
@@ -76,8 +76,8 @@ async function dumpDb(name: string, maxRecords: number): Promise<IndexedDbDump> 
 
 async function readIndexedDb(maxRecords: number): Promise<IndexedDbDump[] | { __error: string }> {
   try {
-    if (typeof indexedDB === 'undefined') return { __error: 'IndexedDB nicht verfügbar' };
-    if (typeof indexedDB.databases !== 'function') return { __error: 'indexedDB.databases() wird nicht unterstützt' };
+    if (typeof indexedDB === 'undefined') return { __error: 'IndexedDB not available' };
+    if (typeof indexedDB.databases !== 'function') return { __error: 'indexedDB.databases() is not supported' };
     const list = await indexedDB.databases();
     const out: IndexedDbDump[] = [];
     for (const info of list) {
@@ -98,7 +98,7 @@ const TEXTY = /^(text\/|application\/(json|javascript|xml|x-javascript|manifest\
 
 async function readCaches(maxBodyBytes: number): Promise<CacheDump[] | { __error: string }> {
   try {
-    if (typeof caches === 'undefined') return { __error: 'Cache Storage nicht verfügbar (kein sicherer Kontext?)' };
+    if (typeof caches === 'undefined') return { __error: 'Cache Storage not available (not a secure context?)' };
     const names = await caches.keys();
     const out: CacheDump[] = [];
     let totalBodies = 0;
@@ -124,8 +124,8 @@ async function readCaches(maxBodyBytes: number): Promise<CacheDump[] | { __error
           try {
             const blob = await res.blob();
             entry.size = blob.size;
-            if (blob.size > maxBodyBytes) entry.skipped = 'größer als Limit';
-            else if (totalBodies + blob.size > totalLimit) entry.skipped = 'Gesamtlimit für Cache-Bodies erreicht';
+            if (blob.size > maxBodyBytes) entry.skipped = 'larger than limit';
+            else if (totalBodies + blob.size > totalLimit) entry.skipped = 'total limit for cache bodies reached';
             else {
               totalBodies += blob.size;
               if (TEXTY.test(blob.type || res.headers.get('content-type') || '')) entry.body = await blob.text();
@@ -135,11 +135,11 @@ async function readCaches(maxBodyBytes: number): Promise<CacheDump[] | { __error
               }
             }
           } catch (e) {
-            entry.skipped = 'Body nicht lesbar: ' + errText(e);
+            entry.skipped = 'body not readable: ' + errText(e);
           }
           dump.entries.push(entry);
         }
-        if (requests.length > 2000) dump.error = `nur die ersten 2000 von ${requests.length} Einträgen exportiert`;
+        if (requests.length > 2000) dump.error = `only the first 2000 of ${requests.length} entries exported`;
       } catch (e) {
         dump.error = errText(e);
       }

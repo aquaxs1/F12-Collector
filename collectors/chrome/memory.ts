@@ -1,11 +1,11 @@
 // Memory (Chrome).
 //
-// Ein echter Heap Snapshot (HeapProfiler.takeHeapSnapshot → .heapsnapshot) ist für Extensions NICHT möglich:
-// chrome.debugger erlaubt nur eine feste Liste von CDP-Domains, HeapProfiler und Memory gehören nicht dazu
-// ("'HeapProfiler.enable' wasn't found"). Stattdessen exportieren wir, was über erlaubte Domains geht:
-//  - memory/heap-usage.json       Runtime.getHeapUsage + performance.memory
-//  - memory/object-counts.json    Objekt-Statistik je Konstruktor (Runtime.queryObjects, wie "Summary" im Heap Snapshot)
-//  - memory/memory-infra.trace.json  Memory-Dump über Tracing (disabled-by-default-memory-infra), ladbar in Perfetto
+// A real heap snapshot (HeapProfiler.takeHeapSnapshot → .heapsnapshot) is NOT possible for extensions:
+// chrome.debugger only allows a fixed list of CDP domains, and HeapProfiler and Memory are not among them
+// ("'HeapProfiler.enable' wasn't found"). Instead we export what the allowed domains provide:
+//  - memory/heap-usage.json          Runtime.getHeapUsage + performance.memory
+//  - memory/object-counts.json       object statistics per constructor (Runtime.queryObjects, like "Summary" in a heap snapshot)
+//  - memory/memory-infra.trace.json  memory dump via Tracing (disabled-by-default-memory-infra), loadable in Perfetto
 import type { Collector } from '@/lib/context';
 import { errMsg, formatBytes } from '@/lib/fetcher';
 import type { CollectorResult } from '@/lib/types';
@@ -18,15 +18,15 @@ const PROTOTYPES = [
   'ArrayBuffer', 'Uint8Array', 'EventTarget', 'Node', 'Element', 'HTMLElement', 'Text', 'Event', 'Blob',
 ];
 
-/** Gruppiert alle Objekte des Arrays nach Konstruktor-Namen (läuft in der Seite, ohne Getter auszulösen). */
+/** Groups all objects of the array by constructor name (runs in the page without triggering getters). */
 const HISTOGRAM_FN = `function () {
   const m = {};
   for (const o of this) {
-    let n = '(unbekannt)';
+    let n = '(unknown)';
     try {
       const p = Object.getPrototypeOf(o);
       const d = p && Object.getOwnPropertyDescriptor(p, 'constructor');
-      n = (d && typeof d.value === 'function' && d.value.name) || (p === null ? '(null-prototype)' : '(anonym)');
+      n = (d && typeof d.value === 'function' && d.value.name) || (p === null ? '(null-prototype)' : '(anonymous)');
     } catch (e) {}
     m[n] = (m[n] || 0) + 1;
   }
@@ -53,7 +53,7 @@ async function objectStats(cdp: CdpSession) {
         histogram = h.result?.value;
       }
     } catch (e) {
-      counts[name] = `Fehler: ${errMsg(e)}`;
+      counts[name] = `Error: ${errMsg(e)}`;
     } finally {
       await cdp.send('Runtime.releaseObjectGroup', { objectGroup: GROUP }).catch(() => {});
     }
@@ -75,13 +75,13 @@ async function memoryTrace(cdp: CdpSession, detail: (t: string) => void): Promis
       traceConfig: { includedCategories: ['disabled-by-default-memory-infra'], memoryDumpConfig: { triggers: [] } },
       transferMode: 'ReturnAsStream',
     });
-    detail('Memory-Dump anfordern');
+    detail('requesting memory dump');
     const dump = await cdp.send('Tracing.requestMemoryDump', { deterministic: true, levelOfDetail: 'detailed' });
-    if (!dump.success) throw new Error('requestMemoryDump fehlgeschlagen');
+    if (!dump.success) throw new Error('requestMemoryDump failed');
     await cdp.send('Tracing.end');
-    const done = await Promise.race([complete, new Promise((_, rej) => setTimeout(() => rej(new Error('Tracing: Zeitüberschreitung')), 60000))]);
+    const done = await Promise.race([complete, new Promise((_, rej) => setTimeout(() => rej(new Error('Tracing: timed out')), 60000))]);
     const handle = (done as any).stream;
-    if (!handle) throw new Error('kein Trace-Stream');
+    if (!handle) throw new Error('no trace stream');
     const parts: string[] = [];
     for (let i = 0; i < 10000; i++) {
       const c = await cdp.send<{ data: string; eof: boolean; base64Encoded?: boolean }>('IO.read', { handle, size: 4 * 1024 * 1024 });
@@ -96,11 +96,11 @@ async function memoryTrace(cdp: CdpSession, detail: (t: string) => void): Promis
 }
 
 export const collectMemoryChrome: Collector = async (ctx) => {
-  if (!ctx.cdp) throw new Error('Memory-Daten benötigen den Chrome-Debugger (chrome.debugger), der nicht verbunden werden konnte.');
+  if (!ctx.cdp) throw new Error('Memory data requires the Chrome debugger (chrome.debugger), which could not be attached.');
   const cdp = ctx.cdp;
   const result: CollectorResult = { files: {}, warnings: [] };
 
-  ctx.detail('Heap-Nutzung');
+  ctx.detail('heap usage');
   const usage = await cdp.send('Runtime.getHeapUsage').catch((e) => ({ error: errMsg(e) }));
   const perf = await cdp
     .send('Runtime.evaluate', {
@@ -126,45 +126,45 @@ export const collectMemoryChrome: Collector = async (ctx) => {
     2,
   );
 
-  ctx.detail('Objekt-Statistik (Runtime.queryObjects)');
+  ctx.detail('object statistics (Runtime.queryObjects)');
   try {
     const stats = await objectStats(cdp);
     result.files['memory/object-counts.json'] = JSON.stringify(
       {
-        note: 'Anzahl lebender Objekte je Prototyp bzw. Konstruktor (entspricht grob der "Summary"-Ansicht eines Heap Snapshots, ohne Größen und Retainer). Mehr Node-Objekte als DOM-Elemente im Dokument können auf abgelöste (detached) DOM-Knoten hinweisen.',
+        note: 'Number of live objects per prototype/constructor (roughly the "Summary" view of a heap snapshot, without sizes and retainers). More Node objects than DOM elements in the document can indicate detached DOM nodes.',
         ...stats,
       },
       null,
       2,
     );
   } catch (e) {
-    result.warnings.push(`Objekt-Statistik: ${errMsg(e)}`);
+    result.warnings.push(`Object statistics: ${errMsg(e)}`);
   }
 
-  ctx.detail('Memory-Trace (memory-infra)');
+  ctx.detail('memory trace (memory-infra)');
   try {
     const trace = await memoryTrace(cdp, ctx.detail);
     result.files['memory/memory-infra.trace.json'] = trace;
   } catch (e) {
-    result.warnings.push(`Memory-Trace: ${errMsg(e)}`);
+    result.warnings.push(`Memory trace: ${errMsg(e)}`);
   }
 
-  result.files['memory/LIESMICH.txt'] = [
+  result.files['memory/README.txt'] = [
     'F12 Collector – Memory',
     '',
-    'Ein echter Heap Snapshot (.heapsnapshot) kann von Browser-Extensions nicht erstellt werden:',
-    'Chrome erlaubt über chrome.debugger nur bestimmte DevTools-Protocol-Domains, "HeapProfiler" gehört nicht dazu.',
+    'Browser extensions cannot create a real heap snapshot (.heapsnapshot):',
+    'Chrome only allows certain DevTools Protocol domains via chrome.debugger, and "HeapProfiler" is not one of them.',
     '',
-    'Enthalten sind stattdessen:',
-    '  heap-usage.json            – belegter/gesamter JS-Heap (Runtime.getHeapUsage, performance.memory)',
-    '  object-counts.json         – Anzahl lebender Objekte je Konstruktor (Runtime.queryObjects)',
-    '  memory-infra.trace.json    – detaillierter Memory-Dump (V8-Heap-Spaces, Blink, Malloc …)',
-    '                               → in https://ui.perfetto.dev per "Open trace file" öffnen (läuft lokal im Browser)',
+    'Included instead:',
+    '  heap-usage.json            – used/total JS heap (Runtime.getHeapUsage, performance.memory)',
+    '  object-counts.json         – number of live objects per constructor (Runtime.queryObjects)',
+    '  memory-infra.trace.json    – detailed memory dump (V8 heap spaces, Blink, malloc …)',
+    '                               → open it in https://ui.perfetto.dev via "Open trace file" (runs locally in your browser)',
     '',
-    'Echten Heap Snapshot manuell erstellen:',
-    '  DevTools (F12) → Tab "Memory" → "Heap snapshot" → "Take snapshot" → Rechtsklick auf den Snapshot → "Save…"',
-    '  Die gespeicherte .heapsnapshot-Datei kann in DevTools > Memory über "Load" wieder geöffnet werden.',
+    'To take a real heap snapshot manually:',
+    '  DevTools (F12) → "Memory" tab → "Heap snapshot" → "Take snapshot" → right-click the snapshot → "Save…"',
+    '  The saved .heapsnapshot file can be reopened in DevTools > Memory via "Load".',
   ].join('\n');
-  result.warnings.push('Kein .heapsnapshot möglich (HeapProfiler ist für Extensions gesperrt) – stattdessen Heap-Statistik, Objekt-Zählung und Memory-Trace, siehe memory/LIESMICH.txt.');
+  result.warnings.push('No .heapsnapshot possible (HeapProfiler is blocked for extensions) – exported heap statistics, object counts and a memory trace instead, see memory/README.txt.');
   return result;
 };

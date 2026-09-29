@@ -6,47 +6,47 @@ export const BROWSER_NAME = IS_FIREFOX ? 'firefox' : 'chrome';
 export interface AreaInfo {
   id: Area;
   label: string;
-  /** full = vollständig, limited = eingeschränkt, unavailable = nicht möglich */
+  /** full = complete, limited = partial, unavailable = not possible */
   support: 'full' | 'limited' | 'unavailable';
   note?: string;
 }
 
-/** Bereiche in der Reihenfolge, in der sie im UI angezeigt und gesammelt werden. */
+/** Areas in the order they are shown in the UI and collected. */
 export function getAreas(): AreaInfo[] {
   return [
-    { id: 'dom', label: 'DOM (Inspektor)', support: 'full' },
-    { id: 'sources', label: 'Quellcode & Source Maps', support: 'full' },
+    { id: 'dom', label: 'DOM (Inspector)', support: 'full' },
+    { id: 'sources', label: 'Sources & source maps', support: 'full' },
     {
       id: 'debugger',
       label: 'Debugger',
       support: IS_FIREFOX ? 'limited' : 'full',
-      note: IS_FIREFOX ? 'nur Script-Liste & Source Maps, kein Call Stack' : undefined,
+      note: IS_FIREFOX ? 'script list & source maps only, no call stack' : undefined,
     },
     {
       id: 'network',
-      label: 'Netzwerk (HAR)',
+      label: 'Network (HAR)',
       support: IS_FIREFOX ? 'limited' : 'full',
-      note: IS_FIREFOX ? 'vereinfachte Timings, ohne Service-Worker-Requests' : undefined,
+      note: IS_FIREFOX ? 'simplified timings, no service worker requests' : undefined,
     },
     { id: 'styles', label: 'Styles', support: 'full' },
     {
       id: 'storage',
-      label: 'Webspeicher',
+      label: 'Storage',
       support: 'full',
     },
     {
       id: 'accessibility',
-      label: 'Barrierefreiheit',
+      label: 'Accessibility',
       support: IS_FIREFOX ? 'limited' : 'full',
-      note: IS_FIREFOX ? 'Annäherung (Rollen, ARIA, Namen)' : undefined,
+      note: IS_FIREFOX ? 'approximation (roles, ARIA, names)' : undefined,
     },
     {
       id: 'memory',
       label: 'Memory',
       support: IS_FIREFOX ? 'unavailable' : 'limited',
       note: IS_FIREFOX
-        ? 'in Firefox für Extensions nicht verfügbar'
-        : 'Heap-Statistik & Memory-Trace – echter .heapsnapshot ist für Extensions gesperrt',
+        ? 'not available to extensions in Firefox'
+        : 'heap statistics & memory trace – a real .heapsnapshot is blocked for extensions',
     },
   ];
 }

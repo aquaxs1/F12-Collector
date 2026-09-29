@@ -1,6 +1,6 @@
 {
   "name": "f12-collector",
-  "description": "F12 Collector – exportiert alles aus den Browser-DevTools als ZIP",
+  "description": "F12 Collector – exports everything from the browser DevTools as a ZIP",
   "private": true,
   "version": "1.0.0",
   "type": "module",

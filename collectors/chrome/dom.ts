@@ -1,4 +1,4 @@
-// DOM (Chrome): DOM.getDocument(depth -1, pierce true) → HTML inkl. Shadow DOM und iframes.
+// DOM (Chrome): DOM.getDocument(depth -1, pierce true) → HTML incl. shadow DOM and iframes.
 import { collectDomFallback, writeFrames } from '@/collectors/firefox/dom';
 import type { Collector } from '@/lib/context';
 import { escapeAttr, escapeText } from '@/lib/content/dom';
@@ -82,7 +82,7 @@ class Serializer {
         out.push(`<${tag}`);
         for (let i = 0; i < attrs.length; i += 2) out.push(` ${attrs[i]}="${escapeAttr(attrs[i + 1] ?? '')}"`);
         const here = [...path, describe(node)];
-        // iframe-Inhalt als eigene Datei
+        // iframe content as a separate file
         if (node.contentDocument) {
           const url = node.contentDocument.documentURL ?? 'about:blank';
           const file = `frames/cdp-${this.frames.length + 1}_${hostOf(url).replace(/[^\w.-]/g, '_')}.html`;
@@ -94,7 +94,7 @@ class Serializer {
         out.push('>');
         if (VOID.has(tag)) return;
         for (const sr of node.shadowRoots ?? []) {
-          if (sr.shadowRootType === 'user-agent') continue; // Browser-interne Shadow Roots (input, video …)
+          if (sr.shadowRootType === 'user-agent') continue; // browser-internal shadow roots (input, video …)
           const start = out.length;
           out.push(`<template shadowrootmode="${sr.shadowRootType ?? 'open'}">`);
           for (const c of sr.children ?? []) this.walk(c, out, null, [...here, '::shadow-root'], frameName);
@@ -113,7 +113,7 @@ class Serializer {
 export const collectDomChrome: Collector = async (ctx) => {
   if (!ctx.cdp) {
     const r = await collectDomFallback(ctx);
-    r.warnings.unshift('Chrome-Debugger nicht verbunden – DOM aus dem Content Script (geschlossene Shadow Roots evtl. unvollständig).');
+    r.warnings.unshift('Chrome debugger not attached – DOM from the content script (closed shadow roots may be incomplete).');
     return r;
   }
   const result: CollectorResult = { files: {}, warnings: [] };
@@ -123,7 +123,7 @@ export const collectDomChrome: Collector = async (ctx) => {
   result.files['dom/index.html'] = ser.serialize(root, 'index.html');
   for (const f of ser.frames) result.files[`dom/${f.file}`] = f.html;
   result.files['dom/shadow-roots.json'] = JSON.stringify(ser.shadowRoots, null, 2);
-  // Frames, die per CDP nicht erreichbar waren (z. B. Cross-Origin/Out-of-Process), aus dem Content Script
+  // Frames not reachable via CDP (e.g. cross-origin/out-of-process) come from the content script
   const cdpUrls = new Set(ser.frames.map((f) => f.url));
   writeFrames(ctx.frames, result, cdpUrls);
   const indexFrames = ser.frames.map((f) => ({ url: f.url, file: f.file, source: 'cdp' }));
@@ -132,6 +132,6 @@ export const collectDomChrome: Collector = async (ctx) => {
     indexFrames.push(...extra);
   }
   if (indexFrames.length) result.files['dom/frames/index.json'] = JSON.stringify(indexFrames, null, 2);
-  ctx.detail(`${ser.nodeCount} Knoten`);
+  ctx.detail(`${ser.nodeCount} nodes`);
   return result;
 };

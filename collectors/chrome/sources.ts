@@ -1,4 +1,4 @@
-// Quellcode (Chrome): Ressourcen über Page.getResourceContent, Scripts über Debugger.getScriptSource.
+// Sources (Chrome): resources via Page.getResourceContent, scripts via Debugger.getScriptSource.
 import { collectSourcesFallback } from '@/collectors/firefox/sources';
 import { extractSourceMaps, type SourceMapCandidate } from '@/collectors/shared/sourcemaps';
 import type { Collector, ScriptRecord } from '@/lib/context';
@@ -30,7 +30,7 @@ export const collectSourcesChrome: Collector = async (ctx) => {
   const cdp = ctx.cdp;
   if (!cdp) {
     const r = await collectSourcesFallback(ctx);
-    r.warnings.unshift('Chrome-Debugger nicht verbunden – Fallback per fetch verwendet.');
+    r.warnings.unshift('Chrome debugger not attached – using the fetch fallback.');
     return r;
   }
   const result: CollectorResult = { files: {}, warnings: [] };
@@ -40,7 +40,7 @@ export const collectSourcesChrome: Collector = async (ctx) => {
   const frameUrls = new Set<string>();
   const index: { url: string; type: string; path?: string; size?: number; skipped?: string; note?: string }[] = [];
 
-  // 1) Alle Ressourcen aus dem Resource Tree
+  // 1) All resources from the resource tree
   await cdp.send('Page.enable');
   const { frameTree } = await cdp.send('Page.getResourceTree');
   const items: ResItem[] = [];
@@ -63,7 +63,7 @@ export const collectSourcesChrome: Collector = async (ctx) => {
 
   let done = 0;
   await mapLimit(items, 6, async (it) => {
-    ctx.detail(`Ressourcen ${++done}/${items.length}`);
+    ctx.detail(`resources ${++done}/${items.length}`);
     if (!/^(https?|file|blob):/i.test(it.url)) return;
     try {
       const { content, base64Encoded } = await cdp.send<{ content: string; base64Encoded: boolean }>('Page.getResourceContent', {
@@ -72,8 +72,8 @@ export const collectSourcesChrome: Collector = async (ctx) => {
       });
       const size = base64Encoded ? Math.floor(content.length * 0.75) : content.length;
       if (size > ctx.maxBytes) {
-        index.push({ url: it.url, type: it.type, size, skipped: `größer als Limit (${formatBytes(size)})` });
-        ctx.skipped.push({ path: it.url, reason: 'größer als Limit', size });
+        index.push({ url: it.url, type: it.type, size, skipped: `larger than limit (${formatBytes(size)})` });
+        ctx.skipped.push({ path: it.url, reason: 'larger than limit', size });
         return;
       }
       const path = alloc.allocate(urlToPath(it.url, 'sources', extFor(it.type, it.mimeType)));
@@ -83,7 +83,7 @@ export const collectSourcesChrome: Collector = async (ctx) => {
       index.push({ url: it.url, type: it.type, path, size });
       if (typeof data === 'string' && it.type === 'Stylesheet') candidates.push({ url: it.url, text: data });
     } catch (e) {
-      // Nicht mehr im Cache des Renderers → per fetch neu laden
+      // No longer in the renderer cache → re-download via fetch
       if (/^https?:/i.test(it.url)) {
         const res = await fetchResource(it.url, ctx.maxBytes);
         if (res.bytes) {
@@ -92,7 +92,7 @@ export const collectSourcesChrome: Collector = async (ctx) => {
           const data = text ? decodeUtf8(res.bytes) : res.bytes;
           result.files[path] = data;
           savedByUrl.set(it.url, path);
-          index.push({ url: it.url, type: it.type, path, size: res.size, note: 'per fetch neu geladen' });
+          index.push({ url: it.url, type: it.type, path, size: res.size, note: 're-downloaded via fetch' });
           if (typeof data === 'string' && it.type === 'Stylesheet') candidates.push({ url: it.url, text: data });
           return;
         }
@@ -101,7 +101,7 @@ export const collectSourcesChrome: Collector = async (ctx) => {
     }
   });
 
-  // 2) Alle geparsten Scripts (inkl. Inline und dynamisch erzeugter)
+  // 2) All parsed scripts (incl. inline and dynamically created ones)
   let parsed = ctx.shared.parsedScripts;
   if (!parsed) {
     parsed = [];
@@ -117,13 +117,13 @@ export const collectSourcesChrome: Collector = async (ctx) => {
   const relevant = parsed.filter((p) => !isExtensionUrl(p.url ?? '') && p.executionContextAuxData?.type !== 'isolated');
   done = 0;
   await mapLimit(relevant, 6, async (p) => {
-    ctx.detail(`Scripts ${++done}/${relevant.length}`);
+    ctx.detail(`scripts ${++done}/${relevant.length}`);
     const url: string = p.url ?? '';
     const isInline = !!url && frameUrls.has(stripHash(url));
     const kind: ScriptRecord['kind'] = !url ? 'dynamic' : isInline ? 'inline' : 'external';
     const rec: ScriptRecord = {
       id: p.scriptId,
-      url: url || `(dynamisch, scriptId ${p.scriptId})`,
+      url: url || `(dynamic, scriptId ${p.scriptId})`,
       sourceMapURL: p.sourceMapURL || undefined,
       length: p.length,
       hash: p.hash,
@@ -143,7 +143,7 @@ export const collectSourcesChrome: Collector = async (ctx) => {
       return;
     }
     if ((p.length ?? 0) > ctx.maxBytes) {
-      ctx.skipped.push({ path: rec.url, reason: 'Script größer als Limit', size: p.length });
+      ctx.skipped.push({ path: rec.url, reason: 'script larger than limit', size: p.length });
       return;
     }
     try {
@@ -163,7 +163,7 @@ export const collectSourcesChrome: Collector = async (ctx) => {
       result.warnings.push(`Script ${rec.url}: ${errMsg(e)}`);
     }
   });
-  if (dynamicSkipped) result.warnings.push(`${dynamicSkipped} dynamisch erzeugte Scripts (eval) nicht exportiert (max. ${MAX_DYNAMIC}).`);
+  if (dynamicSkipped) result.warnings.push(`${dynamicSkipped} dynamically created scripts (eval) not exported (max. ${MAX_DYNAMIC}).`);
 
   // 3) Source Maps
   ctx.shared.scripts = scripts;
@@ -172,6 +172,6 @@ export const collectSourcesChrome: Collector = async (ctx) => {
   index.sort((a, b) => a.url.localeCompare(b.url));
   result.files['sources/index.json'] = JSON.stringify({ method: 'Chrome DevTools Protocol (Page.getResourceContent, Debugger.getScriptSource)', resources: index }, null, 2);
   const skipped = index.filter((i) => i.skipped).length;
-  if (skipped) result.warnings.push(`${skipped} Ressource(n) nicht exportiert – siehe sources/index.json.`);
+  if (skipped) result.warnings.push(`${skipped} resource(s) not exported – see sources/index.json.`);
   return result;
 };

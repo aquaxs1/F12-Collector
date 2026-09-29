@@ -1,4 +1,4 @@
-// Offscreen-Dokument (nur Chrome): setzt ZIP-Teile zu einem Blob zusammen und liefert eine Blob-URL.
+// Offscreen document (Chrome only): assembles ZIP chunks into a blob and returns a blob URL.
 import { browser } from 'wxt/browser';
 
 const parts = new Map<string, BlobPart[]>();

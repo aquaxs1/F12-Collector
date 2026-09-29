@@ -4,7 +4,7 @@ import type { Settings } from './types';
 
 const KEY = 'f12c-settings';
 
-/** Lädt die gespeicherten Einstellungen (fehlende Werte = Standard). */
+/** Loads the saved settings (missing values = defaults). */
 export async function loadSettings(): Promise<Settings> {
   try {
     const stored = (await browser.storage.local.get(KEY))[KEY] as Partial<Settings> | undefined;
@@ -21,7 +21,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 export function normalizeSettings(input?: Partial<Settings>): Settings {
   const s: Settings = { ...structuredClone(DEFAULT_SETTINGS), ...(input ?? {}) };
   s.areas = { ...DEFAULT_SETTINGS.areas, ...(input?.areas ?? {}) };
-  // Bereiche, die im aktuellen Browser nicht möglich sind, immer deaktivieren
+  // Always disable areas that are not possible in the current browser
   for (const a of getAreas()) if (a.support === 'unavailable') s.areas[a.id] = false;
   const num = (v: unknown, def: number, min: number, max: number) => {
     const n = Number(v);

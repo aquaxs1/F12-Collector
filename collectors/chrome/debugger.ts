@@ -1,4 +1,4 @@
-// Debugger (Chrome): Script-Liste, Source Maps und – falls die Seite pausiert ist – Call Stack & Scope-Variablen.
+// Debugger (Chrome): script list, source maps and – if the page is paused – call stack & scope variables.
 import { collectDebuggerFallback, writeScriptLists } from '@/collectors/firefox/debugger';
 import type { Collector, ScriptRecord } from '@/lib/context';
 import { errMsg } from '@/lib/fetcher';
@@ -9,7 +9,7 @@ import { isExtensionUrl } from './sources';
 
 const MAX_PROPS = 300;
 
-/** RemoteObject → kompakte, JSON-taugliche Beschreibung */
+/** RemoteObject → compact, JSON-friendly description */
 function summarize(o: any): unknown {
   if (!o) return undefined;
   const out: Record<string, unknown> = { type: o.type };
@@ -33,7 +33,7 @@ async function scopeVariables(cdp: CdpSession, objectId: string) {
 export const collectDebuggerChrome: Collector = async (ctx) => {
   if (!ctx.cdp) {
     const r = await collectDebuggerFallback(ctx);
-    r.warnings.unshift('Chrome-Debugger nicht verbunden.');
+    r.warnings.unshift('Chrome debugger not attached.');
     return r;
   }
   const cdp = ctx.cdp;
@@ -45,7 +45,7 @@ export const collectDebuggerChrome: Collector = async (ctx) => {
       .filter((p) => !isExtensionUrl(p.url ?? '') && p.executionContextAuxData?.type !== 'isolated')
       .map((p) => ({
         id: p.scriptId,
-        url: p.url || `(dynamisch, scriptId ${p.scriptId})`,
+        url: p.url || `(dynamic, scriptId ${p.scriptId})`,
         sourceMapURL: p.sourceMapURL || undefined,
         length: p.length,
         hash: p.hash,
@@ -60,7 +60,7 @@ export const collectDebuggerChrome: Collector = async (ctx) => {
     result.files['debugger/paused-state.json'] = JSON.stringify(
       {
         paused: false,
-        note: 'Die Seite war beim Export nicht im Debugger angehalten. Für Call Stack & Scope-Variablen: in den DevTools einen Breakpoint setzen, warten bis die Seite anhält, dann im Tab "F12 Collector" auf "Snapshot erstellen" klicken.',
+        note: 'The page was not paused in the debugger during the export. For call stack & scope variables: set a breakpoint in DevTools, wait until the page pauses, then click "Take snapshot" in the "F12 Collector" tab.',
       },
       null,
       2,
@@ -80,7 +80,7 @@ export const collectDebuggerChrome: Collector = async (ctx) => {
         name: s.name,
         startLocation: s.startLocation ? { line: s.startLocation.lineNumber + 1, column: s.startLocation.columnNumber + 1 } : undefined,
       };
-      if (s.type === 'global') scope.note = 'globaler Scope nicht exportiert (zu groß)';
+      if (s.type === 'global') scope.note = 'global scope not exported (too large)';
       else if (s.object?.objectId) {
         try {
           const vars = await scopeVariables(cdp, s.object.objectId);
@@ -99,7 +99,7 @@ export const collectDebuggerChrome: Collector = async (ctx) => {
     }
     frames.push({
       index: i,
-      functionName: f.functionName || '(anonym)',
+      functionName: f.functionName || '(anonymous)',
       url: f.url || script?.url,
       file: script?.path,
       line: f.location.lineNumber + 1,
@@ -113,7 +113,7 @@ export const collectDebuggerChrome: Collector = async (ctx) => {
   for (let st = paused.asyncStackTrace; st && asyncFrames.length < 50; st = st.parent)
     asyncFrames.push({
       description: st.description,
-      callFrames: (st.callFrames ?? []).map((c: any) => ({ functionName: c.functionName || '(anonym)', url: c.url, line: c.lineNumber + 1, column: c.columnNumber + 1 })),
+      callFrames: (st.callFrames ?? []).map((c: any) => ({ functionName: c.functionName || '(anonymous)', url: c.url, line: c.lineNumber + 1, column: c.columnNumber + 1 })),
     });
   result.files['debugger/paused-state.json'] = JSON.stringify(
     {
@@ -127,6 +127,6 @@ export const collectDebuggerChrome: Collector = async (ctx) => {
     null,
     2,
   );
-  result.warnings.push(`Seite war pausiert (${paused.reason}) – Call Stack mit ${frames.length} Frame(s) exportiert.`);
+  result.warnings.push(`Page was paused (${paused.reason}) – call stack with ${frames.length} frame(s) exported.`);
   return result;
 };
