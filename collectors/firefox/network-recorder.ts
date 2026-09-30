@@ -233,6 +233,29 @@ export class WebRequestRecorder {
     this.listeners = [];
   }
 
+  /** Compact response list (headers only – Firefox has no TLS certificate access). */
+  getResponses(): import('@/lib/context').CdpResponseInfo[] {
+    const out: import('@/lib/context').CdpResponseInfo[] = [];
+    const seen = new Set<string>();
+    for (const r of this.all) {
+      if (!/^https?:/i.test(r.url)) continue;
+      const key = r.method + ' ' + r.url;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const headers: Record<string, string> = {};
+      for (const h of r.responseHeaders ?? []) headers[h.name.toLowerCase()] = h.value;
+      out.push({
+        url: r.url,
+        status: r.statusCode ?? 0,
+        type: r.type,
+        remoteIP: r.ip,
+        fromCache: r.fromCache,
+        headers,
+      });
+    }
+    return out;
+  }
+
   async toHar(ctx: JobContext): Promise<{ har: any; warnings: string[] }> {
     const warnings: string[] = [];
     const recs = this.all.filter((r) => /^(https?|ftp):/i.test(r.url));

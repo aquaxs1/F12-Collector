@@ -10,6 +10,7 @@ import { browser } from 'wxt/browser';
 export interface NetworkRecording {
   reloadAndWait(onDetail: (t: string) => void): Promise<{ timedOut: boolean; summary: string }>;
   toHar(ctx: JobContext): Promise<{ har: any; warnings: string[] }>;
+  getResponses?(): import('./context').CdpResponseInfo[];
   stop(): Promise<void>;
 }
 
@@ -70,6 +71,9 @@ export async function startRecording(ctx: JobContext): Promise<NetworkRecording>
           };
         }
       }
+    },
+    getResponses() {
+      return (recorder as any).getResponses ? (recorder as any).getResponses() : [];
     },
     async toHar(c) {
       stopAll();

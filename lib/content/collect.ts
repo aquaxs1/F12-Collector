@@ -5,6 +5,7 @@ import { collectResources } from './resources';
 import { collectStorage } from './storage';
 import { collectStyles } from './styles';
 import { collectA11y } from './a11y';
+import { collectApplication } from './application';
 import { errText } from './util';
 
 export async function collectFrame(opts: ContentCollectOptions): Promise<Omit<FrameData, 'frameId'>> {
@@ -27,5 +28,6 @@ export async function collectFrame(opts: ContentCollectOptions): Promise<Omit<Fr
   if (opts.storage) await step('Storage', async () => (data.storage = await collectStorage(opts.indexedDbMaxRecords, opts.maxBodyBytes)));
   if (opts.styles) await step('Styles', async () => (data.styles = await collectStyles(opts)));
   if (opts.a11y) await step('Accessibility', () => (data.a11y = collectA11y()));
+  if (opts.application) await step('Application', async () => (data.application = await collectApplication()));
   return data;
 }

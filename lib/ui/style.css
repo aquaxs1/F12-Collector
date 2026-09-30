@@ -74,3 +74,5 @@ details summary:hover { color: var(--accent); }
 @keyframes spin { to { transform: rotate(360deg); } }
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+.group-head { margin: 8px 0 2px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--accent); opacity: 0.8; }
+.group-head:first-child { margin-top: 2px; }

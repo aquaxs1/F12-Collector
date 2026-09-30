@@ -8,7 +8,22 @@ export type Area =
   | 'styles'
   | 'memory'
   | 'storage'
-  | 'accessibility';
+  | 'accessibility'
+  // added areas
+  | 'console'
+  | 'windowGlobals'
+  | 'eventListeners'
+  | 'performance'
+  | 'coverage'
+  | 'pageCapture'
+  | 'assets'
+  | 'application'
+  | 'websockets'
+  | 'security'
+  | 'techstack'
+  | 'thirdParties'
+  | 'meta'
+  | 'findings';
 
 export type FileContent = string | Uint8Array;
 
@@ -101,6 +116,7 @@ export interface ContentCollectOptions {
   /** Read stylesheets in the content script (only needed without CDP) */
   styleSheets: boolean;
   a11y: boolean;
+  application: boolean;
   computedStylesMode: ComputedStylesMode;
   computedStylesLimit: number;
   computedStylesDiffOnly: boolean;
@@ -219,4 +235,76 @@ export interface FrameData {
     computedTotalCandidates: number;
   };
   a11y?: { tree: A11yNode; nodeCount: number; truncated: boolean };
+  application?: import('./content/application').AppData;
+}
+
+// ---------- MAIN-world probe (console, errors, websockets, web vitals, window globals) ----------
+
+export interface ConsoleEntry {
+  level: string;
+  ts: number;
+  args: string[];
+  stack?: string;
+  url?: string;
+}
+
+export interface PageErrorEntry {
+  ts: number;
+  kind: 'error' | 'unhandledrejection';
+  message: string;
+  source?: string;
+  line?: number;
+  column?: number;
+  stack?: string;
+}
+
+export interface WsFrame {
+  ts: number;
+  dir: 'send' | 'receive';
+  opcode?: string;
+  text?: string;
+  binaryByteLength?: number;
+  truncated?: boolean;
+}
+
+export interface WsConnection {
+  kind: 'WebSocket' | 'EventSource';
+  url: string;
+  protocols?: string;
+  openedAt: number;
+  closedAt?: number;
+  closeCode?: number;
+  closeReason?: string;
+  frames: WsFrame[];
+  framesDropped: number;
+}
+
+export interface WebVitals {
+  lcp?: number;
+  cls?: number;
+  inp?: number;
+  fcp?: number;
+  ttfb?: number;
+  longTasks?: number;
+  longTaskTotalMs?: number;
+}
+
+export interface GlobalEntry {
+  name: string;
+  type: string;
+  preview?: string;
+}
+
+/** One frame's snapshot of the MAIN-world probe buffers. */
+export interface FrameProbe {
+  frameUrl: string;
+  isTop: boolean;
+  installedAtDocumentStart: boolean;
+  console: ConsoleEntry[];
+  consoleDropped: number;
+  errors: PageErrorEntry[];
+  ws: WsConnection[];
+  vitals: WebVitals;
+  globals: GlobalEntry[];
+  navigation?: Record<string, number>;
 }

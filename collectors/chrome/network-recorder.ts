@@ -144,6 +144,36 @@ export class CdpNetworkRecorder {
     this.offs = [];
   }
 
+  /** Compact response list (headers, TLS securityDetails) for the security/third-party areas. */
+  getResponses(): import('@/lib/context').CdpResponseInfo[] {
+    const out: import('@/lib/context').CdpResponseInfo[] = [];
+    const seen = new Set<string>();
+    for (const r of this.all) {
+      const resp = r.response;
+      if (!resp || r.request.url.startsWith('data:')) continue;
+      const key = r.request.method + ' ' + r.request.url;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const extra = this.extraResp.get(r.id)?.[r.hop];
+      const headers: Record<string, string> = {};
+      for (const [k, v] of Object.entries((extra?.headers ?? resp.headers ?? {}) as Record<string, string>)) headers[k.toLowerCase()] = String(v);
+      out.push({
+        url: r.request.url,
+        status: resp.status ?? 0,
+        statusText: resp.statusText,
+        mimeType: resp.mimeType,
+        type: r.type,
+        protocol: resp.protocol,
+        remoteIP: resp.remoteIPAddress,
+        fromCache: resp.fromDiskCache || resp.fromPrefetchCache,
+        headers,
+        securityDetails: resp.securityDetails,
+        securityState: resp.securityState,
+      });
+    }
+    return out;
+  }
+
   async toHar(ctx: JobContext): Promise<{ har: any; warnings: string[] }> {
     const warnings: string[] = [];
     const recs = this.all.filter((r) => !isExtensionUrl(r.request.url) && !r.request.url.startsWith('data:'));
