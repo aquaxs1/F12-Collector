@@ -22,6 +22,11 @@ import { collectApplication } from './shared/application';
 import { collectWebSockets } from './shared/websockets';
 import { collectPerformance } from './shared/performance';
 import { collectCoverage } from './chrome/coverage';
+import { collectSecurity } from './shared/security';
+import { collectTechStack } from './shared/techstack';
+import { collectThirdParties } from './shared/third-parties';
+import { collectMeta } from './shared/meta';
+import { collectFindings } from './shared/findings';
 import { collectNetwork } from './shared/network';
 import { collectStorage } from './shared/storage';
 
@@ -43,6 +48,11 @@ const chromeCollectors: Partial<Record<Area, Collector>> = {
   websockets: collectWebSockets,
   performance: collectPerformance,
   coverage: collectCoverage,
+  security: collectSecurity,
+  techstack: collectTechStack,
+  thirdParties: collectThirdParties,
+  meta: collectMeta,
+  findings: collectFindings,
 };
 
 const firefoxCollectors: Partial<Record<Area, Collector>> = {
@@ -60,6 +70,11 @@ const firefoxCollectors: Partial<Record<Area, Collector>> = {
   application: collectApplication,
   websockets: collectWebSockets,
   performance: collectPerformance,
+  security: collectSecurity,
+  techstack: collectTechStack,
+  thirdParties: collectThirdParties,
+  meta: collectMeta,
+  findings: collectFindings,
 };
 
 export const collectors: Partial<Record<Area, Collector>> = import.meta.env.FIREFOX ? firefoxCollectors : chromeCollectors;

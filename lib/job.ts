@@ -128,6 +128,7 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
       recording = await startRecording(ctx);
       detail('reloading page');
       const info = await recording.reloadAndWait((t) => detail(t));
+      ctx.shared.responses = recording.getResponses?.() ?? [];
       ctx.url = (await browser.tabs.get(tabId)).url ?? ctx.url;
       state.url = ctx.url;
       setStep('record', info.timedOut ? 'warning' : 'done', info.summary);
