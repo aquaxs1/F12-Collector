@@ -15,6 +15,9 @@ import { collectStylesFallback } from './firefox/styles';
 import { collectConsole } from './shared/console';
 import { collectWindowGlobals } from './shared/window-globals';
 import { collectEventListeners } from './chrome/event-listeners';
+import { collectPageCaptureChrome } from './chrome/page-capture';
+import { collectPageCaptureFallback } from './firefox/page-capture';
+import { collectAssets } from './shared/assets';
 import { collectNetwork } from './shared/network';
 import { collectStorage } from './shared/storage';
 
@@ -30,6 +33,8 @@ const chromeCollectors: Partial<Record<Area, Collector>> = {
   console: collectConsole,
   windowGlobals: collectWindowGlobals,
   eventListeners: collectEventListeners,
+  pageCapture: collectPageCaptureChrome,
+  assets: collectAssets,
 };
 
 const firefoxCollectors: Partial<Record<Area, Collector>> = {
@@ -42,6 +47,8 @@ const firefoxCollectors: Partial<Record<Area, Collector>> = {
   storage: collectStorage,
   console: collectConsole,
   windowGlobals: collectWindowGlobals,
+  pageCapture: collectPageCaptureFallback,
+  assets: collectAssets,
 };
 
 export const collectors: Partial<Record<Area, Collector>> = import.meta.env.FIREFOX ? firefoxCollectors : chromeCollectors;
