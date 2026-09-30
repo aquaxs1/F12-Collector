@@ -8,6 +8,7 @@ import type { JobContext } from './context';
 import { buildZip, downloadZip } from './export';
 import { errMsg, formatBytes, withTimeout } from './fetcher';
 import { collectFromFrames } from './frames';
+import { collectProbe } from './probe';
 import { startRecording, type NetworkRecording } from './recording';
 import { hostOf, sanitizeSegment, timestampForFile } from './paths';
 import type { Area, FileContent, JobState, ProgressStep, StartJobMessage, StepStatus } from './types';
@@ -134,6 +135,17 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
         offPaused();
         offResumed();
       }
+
+      // Console: capture browser-level messages live (Chrome). Listeners persist until detach.
+      if (settings.areas.console) {
+        const events: { source: string; entry: any }[] = [];
+        ctx.shared.consoleEvents = events;
+        ctx.cdp.on('Runtime.consoleAPICalled', (e) => events.length < 5000 && events.push({ source: 'Runtime.consoleAPICalled', entry: e }));
+        ctx.cdp.on('Runtime.exceptionThrown', (e) => events.length < 5000 && events.push({ source: 'Runtime.exceptionThrown', entry: e.exceptionDetails ? e : { exceptionDetails: e } }));
+        ctx.cdp.on('Log.entryAdded', (e) => events.length < 5000 && events.push({ source: 'Log.entryAdded', entry: e.entry ?? e }));
+        await ctx.cdp.send('Runtime.enable').catch(() => {});
+        await ctx.cdp.send('Log.enable').catch(() => {});
+      }
     }
 
     // ---------- Content script in all frames ----------
@@ -148,6 +160,19 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
         ctx.frames = res.frames;
         warnings.push(...res.warnings);
         setStep('frames', res.frames.length ? 'done' : 'warning', `${res.frames.length} frame(s)`);
+
+        // MAIN-world probe (console, errors, websockets, web vitals, window globals)
+        if (['console', 'windowGlobals', 'performance', 'websockets'].some((a) => settings.areas[a as Area])) {
+          try {
+            const pr = await collectProbe(tabId);
+            ctx.shared.probe = pr.frames;
+            warnings.push(...pr.warnings);
+            // attach frame URLs by index where possible
+            pr.frames.forEach((f, i) => (f.frameUrl = ctx.frames[i]?.url ?? (f.isTop ? ctx.url : '')));
+          } catch (e) {
+            warnings.push(`Probe: ${errMsg(e)}`);
+          }
+        }
       } catch (e) {
         warnings.push(`Content Script: ${errMsg(e)}`);
         setStep('frames', 'error', errMsg(e));

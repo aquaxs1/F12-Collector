@@ -1,5 +1,5 @@
 import type { CdpSession } from '../collectors/chrome/cdp';
-import type { CollectorResult, DevtoolsExtras, FrameData, RunMode, Settings } from './types';
+import type { CollectorResult, DevtoolsExtras, FrameData, FrameProbe, RunMode, Settings } from './types';
 
 export interface SkippedFile {
   path: string;
@@ -29,6 +29,20 @@ export interface SourceMapRecord {
   error?: string;
 }
 
+export interface CdpResponseInfo {
+  url: string;
+  status: number;
+  statusText?: string;
+  mimeType?: string;
+  type?: string;
+  protocol?: string;
+  remoteIP?: string;
+  fromCache?: boolean;
+  headers: Record<string, string>;
+  securityDetails?: any;
+  securityState?: string;
+}
+
 /** Everything a collector needs to know about the running export. */
 export interface JobContext {
   tabId: number;
@@ -53,6 +67,12 @@ export interface JobContext {
     pausedEvent?: any;
     /** CDP Debugger.scriptParsed events */
     parsedScripts?: any[];
+    /** MAIN-world probe buffers per frame (console, errors, websockets, web vitals, globals). */
+    probe?: FrameProbe[];
+    /** CDP console/log events captured during the job (Chrome). */
+    consoleEvents?: { source: string; entry: any }[];
+    /** CDP Network responses captured during recording (headers, securityDetails). */
+    responses?: CdpResponseInfo[];
   };
   maxBytes: number;
   skipped: SkippedFile[];
