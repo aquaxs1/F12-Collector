@@ -3,6 +3,7 @@
 import type { Collector } from '@/lib/context';
 import { json } from '@/lib/context';
 import { eTldPlusOne, getResponses, hostOfUrl } from './responses';
+import { redactTokensInString } from '@/lib/redact';
 
 const KNOWN_TRACKERS = [
   'google-analytics.com', 'googletagmanager.com', 'doubleclick.net', 'google.com/ads', 'googlesyndication.com',
@@ -62,7 +63,7 @@ export const collectThirdParties: Collector = async (ctx) => {
     types: e.types,
     setsCookies: !!setsCookieByHost.get(e.host),
     knownTracker: KNOWN_TRACKERS.some((t) => e.host.includes(t) || e.etld1.includes(t)),
-    samples: Array.from(e.samples),
+    samples: Array.from(e.samples).map((u) => (ctx.settings.redact ? redactTokensInString(u) : u)),
   }));
   const thirdParties = all.filter((x) => !x.firstParty).sort((a, b) => Number(b.knownTracker) - Number(a.knownTracker) || b.requests - a.requests);
   const trackers = thirdParties.filter((x) => x.knownTracker);

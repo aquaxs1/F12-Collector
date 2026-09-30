@@ -3,12 +3,14 @@
 import type { Collector } from '@/lib/context';
 import { json } from '@/lib/context';
 import { errMsg } from '@/lib/fetcher';
+import { redactTokensInString } from '@/lib/redact';
 
 const MAX_ELEMENTS = 800;
 
 export const collectEventListeners: Collector = async (ctx) => {
   const cdp = ctx.cdp;
   const result = { files: {} as Record<string, string>, warnings: [] as string[] };
+  const red = (v: string) => (ctx.settings.redact ? redactTokensInString(v) : v);
   if (!cdp) throw new Error('Event listeners require the Chrome debugger (chrome.debugger), which could not be attached.');
   if (ctx.shared.pausedEvent) {
     result.warnings.push('Page is paused in the debugger: event listeners cannot be read.');
@@ -50,7 +52,7 @@ export const collectEventListeners: Collector = async (ctx) => {
             scriptId: l.scriptId,
             line: (l.lineNumber ?? 0) + 1,
             column: (l.columnNumber ?? 0) + 1,
-            handler: l.handler?.description ? String(l.handler.description).slice(0, 300) : l.handler?.className,
+            handler: l.handler?.description ? red(String(l.handler.description).slice(0, 300)) : l.handler?.className,
           })),
         });
       }

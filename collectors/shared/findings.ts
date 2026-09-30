@@ -5,6 +5,7 @@ import type { Collector } from '@/lib/context';
 import { json } from '@/lib/context';
 import { decodeUtf8, fetchResource, mapLimit } from '@/lib/fetcher';
 import { isHttpUrl, urlToPath } from '@/lib/paths';
+import { redactTokensInString } from '@/lib/redact';
 
 interface SecretRule {
   type: string;
@@ -116,7 +117,7 @@ export const collectFindings: Collector = async (ctx) => {
   }
 
   const endpoints = Array.from(endpointMap.entries())
-    .map(([url, v]) => ({ url, count: v.count, locations: Array.from(v.locations) }))
+    .map(([url, v]) => ({ url: redact ? redactTokensInString(url) : url, count: v.count, locations: Array.from(v.locations) }))
     .sort((a, b) => b.count - a.count);
 
   const bySeverity = { high: 0, medium: 0, low: 0 } as Record<string, number>;

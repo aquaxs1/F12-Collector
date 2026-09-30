@@ -4,6 +4,7 @@
 import type { Collector, JobContext } from '@/lib/context';
 import { json } from '@/lib/context';
 import { getResponses } from './responses';
+import { redactTokensInString } from '@/lib/redact';
 
 interface Rule {
   name: string;
@@ -113,7 +114,7 @@ export const collectTechStack: Collector = async (ctx) => {
       const hit = Array.from(globals).find((g) => re.test(g));
       if (hit) evidence.push(`window.${hit}`);
     }
-    if (evidence.length) detected.push({ name: rule.name, category: rule.cat, version, confidence: evidence.length >= 2 ? 'high' : 'medium', evidence: evidence.slice(0, 4) });
+    if (evidence.length) detected.push({ name: rule.name, category: rule.cat, version, confidence: evidence.length >= 2 ? 'high' : 'medium', evidence: evidence.slice(0, 4).map((x) => (ctx.settings.redact ? redactTokensInString(x) : x)) });
   }
 
   detected.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
