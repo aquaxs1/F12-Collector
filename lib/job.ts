@@ -103,6 +103,24 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
     }
     setStep('prepare', 'done', ctx.cdp ? 'debugger attached' : IS_FIREFOX ? 'Firefox mode' : 'without debugger');
 
+    // Coverage must start tracking BEFORE the page runs (i.e. before an optional reload).
+    if (ctx.cdp && settings.areas.coverage) {
+      const cov = (ctx.shared.coverage = { started: false as boolean, cssSheets: {} as Record<string, { url?: string; length?: number }> });
+      ctx.cdp.on('CSS.styleSheetAdded', (p: any) => {
+        if (p.header) cov.cssSheets[p.header.styleSheetId] = { url: p.header.sourceURL, length: p.header.length };
+      });
+      try {
+        await ctx.cdp.send('Profiler.enable');
+        await ctx.cdp.send('Profiler.startPreciseCoverage', { callCount: false, detailed: true, allowTriggeredUpdates: false });
+        await ctx.cdp.send('DOM.enable');
+        await ctx.cdp.send('CSS.enable');
+        await ctx.cdp.send('CSS.startRuleUsageTracking');
+        cov.started = true;
+      } catch (e) {
+        warnings.push(`Coverage could not be started: ${errMsg(e)}`);
+      }
+    }
+
     // ---------- Record & reload ----------
     if (mode === 'record') {
       current = 'record';
@@ -171,6 +189,18 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
             pr.frames.forEach((f, i) => (f.frameUrl = ctx.frames[i]?.url ?? (f.isTop ? ctx.url : '')));
           } catch (e) {
             warnings.push(`Probe: ${errMsg(e)}`);
+          }
+        }
+
+        // Take coverage before other collectors touch the CSS domain.
+        if (ctx.cdp && ctx.shared.coverage?.started) {
+          try {
+            ctx.shared.coverage.js = (await ctx.cdp.send<any>('Profiler.takePreciseCoverage')).result;
+            ctx.shared.coverage.css = (await ctx.cdp.send<any>('CSS.takeCoverageDelta')).coverage;
+            await ctx.cdp.send('Profiler.stopPreciseCoverage').catch(() => {});
+            await ctx.cdp.send('CSS.stopRuleUsageTracking').catch(() => {});
+          } catch (e) {
+            warnings.push(`Coverage capture: ${errMsg(e)}`);
           }
         }
       } catch (e) {
@@ -311,6 +341,7 @@ function contentOptions(ctx: JobContext, selected: Area[]) {
     styles: has('styles'),
     styleSheets: has('styles') && !ctx.cdp,
     a11y: has('accessibility') && !ctx.cdp,
+    application: has('application'),
     computedStylesMode: ctx.settings.computedStylesMode,
     computedStylesLimit: ctx.settings.computedStylesLimit,
     computedStylesDiffOnly: ctx.settings.computedStylesDiffOnly,

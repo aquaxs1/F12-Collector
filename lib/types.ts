@@ -116,6 +116,7 @@ export interface ContentCollectOptions {
   /** Read stylesheets in the content script (only needed without CDP) */
   styleSheets: boolean;
   a11y: boolean;
+  application: boolean;
   computedStylesMode: ComputedStylesMode;
   computedStylesLimit: number;
   computedStylesDiffOnly: boolean;
@@ -234,6 +235,7 @@ export interface FrameData {
     computedTotalCandidates: number;
   };
   a11y?: { tree: A11yNode; nodeCount: number; truncated: boolean };
+  application?: import('./content/application').AppData;
 }
 
 // ---------- MAIN-world probe (console, errors, websockets, web vitals, window globals) ----------

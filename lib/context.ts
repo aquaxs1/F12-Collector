@@ -73,6 +73,13 @@ export interface JobContext {
     consoleEvents?: { source: string; entry: any }[];
     /** CDP Network responses captured during recording (headers, securityDetails). */
     responses?: CdpResponseInfo[];
+    /** Coverage captured after the page loaded (Chrome). */
+    coverage?: {
+      started: boolean;
+      js?: any[];
+      css?: any[];
+      cssSheets: Record<string, { url?: string; length?: number }>;
+    };
   };
   maxBytes: number;
   skipped: SkippedFile[];
