@@ -49,7 +49,12 @@ export async function mountApp(root: HTMLElement, opts: AppOptions) {
 
   // ---------- Areas ----------
   const areaBox = h('fieldset', {}, h('legend', {}, 'Areas'));
+  let lastGroup = '';
   for (const a of getAreas()) {
+    if (a.group !== lastGroup) {
+      lastGroup = a.group;
+      areaBox.append(h('div', { class: 'group-head' }, a.group));
+    }
     const unavailable = a.support === 'unavailable';
     const cb = h('input', {
       type: 'checkbox',

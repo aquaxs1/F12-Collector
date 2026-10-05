@@ -12,6 +12,21 @@ import { collectA11yFallback } from './firefox/accessibility';
 import { collectDomFallback } from './firefox/dom';
 import { collectSourcesFallback } from './firefox/sources';
 import { collectStylesFallback } from './firefox/styles';
+import { collectConsole } from './shared/console';
+import { collectWindowGlobals } from './shared/window-globals';
+import { collectEventListeners } from './chrome/event-listeners';
+import { collectPageCaptureChrome } from './chrome/page-capture';
+import { collectPageCaptureFallback } from './firefox/page-capture';
+import { collectAssets } from './shared/assets';
+import { collectApplication } from './shared/application';
+import { collectWebSockets } from './shared/websockets';
+import { collectPerformance } from './shared/performance';
+import { collectCoverage } from './chrome/coverage';
+import { collectSecurity } from './shared/security';
+import { collectTechStack } from './shared/techstack';
+import { collectThirdParties } from './shared/third-parties';
+import { collectMeta } from './shared/meta';
+import { collectFindings } from './shared/findings';
 import { collectNetwork } from './shared/network';
 import { collectStorage } from './shared/storage';
 
@@ -24,6 +39,20 @@ const chromeCollectors: Partial<Record<Area, Collector>> = {
   accessibility: collectA11yChrome,
   network: collectNetwork,
   storage: collectStorage,
+  console: collectConsole,
+  windowGlobals: collectWindowGlobals,
+  eventListeners: collectEventListeners,
+  pageCapture: collectPageCaptureChrome,
+  assets: collectAssets,
+  application: collectApplication,
+  websockets: collectWebSockets,
+  performance: collectPerformance,
+  coverage: collectCoverage,
+  security: collectSecurity,
+  techstack: collectTechStack,
+  thirdParties: collectThirdParties,
+  meta: collectMeta,
+  findings: collectFindings,
 };
 
 const firefoxCollectors: Partial<Record<Area, Collector>> = {
@@ -34,6 +63,18 @@ const firefoxCollectors: Partial<Record<Area, Collector>> = {
   accessibility: collectA11yFallback,
   network: collectNetwork,
   storage: collectStorage,
+  console: collectConsole,
+  windowGlobals: collectWindowGlobals,
+  pageCapture: collectPageCaptureFallback,
+  assets: collectAssets,
+  application: collectApplication,
+  websockets: collectWebSockets,
+  performance: collectPerformance,
+  security: collectSecurity,
+  techstack: collectTechStack,
+  thirdParties: collectThirdParties,
+  meta: collectMeta,
+  findings: collectFindings,
 };
 
 export const collectors: Partial<Record<Area, Collector>> = import.meta.env.FIREFOX ? firefoxCollectors : chromeCollectors;

@@ -8,6 +8,7 @@ import type { JobContext } from './context';
 import { buildZip, downloadZip } from './export';
 import { errMsg, formatBytes, withTimeout } from './fetcher';
 import { collectFromFrames } from './frames';
+import { collectProbe } from './probe';
 import { startRecording, type NetworkRecording } from './recording';
 import { hostOf, sanitizeSegment, timestampForFile } from './paths';
 import type { Area, FileContent, JobState, ProgressStep, StartJobMessage, StepStatus } from './types';
@@ -102,6 +103,24 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
     }
     setStep('prepare', 'done', ctx.cdp ? 'debugger attached' : IS_FIREFOX ? 'Firefox mode' : 'without debugger');
 
+    // Coverage must start tracking BEFORE the page runs (i.e. before an optional reload).
+    if (ctx.cdp && settings.areas.coverage) {
+      const cov = (ctx.shared.coverage = { started: false as boolean, cssSheets: {} as Record<string, { url?: string; length?: number }> });
+      ctx.cdp.on('CSS.styleSheetAdded', (p: any) => {
+        if (p.header) cov.cssSheets[p.header.styleSheetId] = { url: p.header.sourceURL, length: p.header.length };
+      });
+      try {
+        await ctx.cdp.send('Profiler.enable');
+        await ctx.cdp.send('Profiler.startPreciseCoverage', { callCount: false, detailed: true, allowTriggeredUpdates: false });
+        await ctx.cdp.send('DOM.enable');
+        await ctx.cdp.send('CSS.enable');
+        await ctx.cdp.send('CSS.startRuleUsageTracking');
+        cov.started = true;
+      } catch (e) {
+        warnings.push(`Coverage could not be started: ${errMsg(e)}`);
+      }
+    }
+
     // ---------- Record & reload ----------
     if (mode === 'record') {
       current = 'record';
@@ -109,6 +128,7 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
       recording = await startRecording(ctx);
       detail('reloading page');
       const info = await recording.reloadAndWait((t) => detail(t));
+      ctx.shared.responses = recording.getResponses?.() ?? [];
       ctx.url = (await browser.tabs.get(tabId)).url ?? ctx.url;
       state.url = ctx.url;
       setStep('record', info.timedOut ? 'warning' : 'done', info.summary);
@@ -134,6 +154,17 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
         offPaused();
         offResumed();
       }
+
+      // Console: capture browser-level messages live (Chrome). Listeners persist until detach.
+      if (settings.areas.console) {
+        const events: { source: string; entry: any }[] = [];
+        ctx.shared.consoleEvents = events;
+        ctx.cdp.on('Runtime.consoleAPICalled', (e) => events.length < 5000 && events.push({ source: 'Runtime.consoleAPICalled', entry: e }));
+        ctx.cdp.on('Runtime.exceptionThrown', (e) => events.length < 5000 && events.push({ source: 'Runtime.exceptionThrown', entry: e.exceptionDetails ? e : { exceptionDetails: e } }));
+        ctx.cdp.on('Log.entryAdded', (e) => events.length < 5000 && events.push({ source: 'Log.entryAdded', entry: e.entry ?? e }));
+        await ctx.cdp.send('Runtime.enable').catch(() => {});
+        await ctx.cdp.send('Log.enable').catch(() => {});
+      }
     }
 
     // ---------- Content script in all frames ----------
@@ -148,6 +179,31 @@ export async function runJob(msg: StartJobMessage, publish: StateListener): Prom
         ctx.frames = res.frames;
         warnings.push(...res.warnings);
         setStep('frames', res.frames.length ? 'done' : 'warning', `${res.frames.length} frame(s)`);
+
+        // MAIN-world probe (console, errors, websockets, web vitals, window globals)
+        if (['console', 'windowGlobals', 'performance', 'websockets'].some((a) => settings.areas[a as Area])) {
+          try {
+            const pr = await collectProbe(tabId);
+            ctx.shared.probe = pr.frames;
+            warnings.push(...pr.warnings);
+            // attach frame URLs by index where possible
+            pr.frames.forEach((f, i) => (f.frameUrl = ctx.frames[i]?.url ?? (f.isTop ? ctx.url : '')));
+          } catch (e) {
+            warnings.push(`Probe: ${errMsg(e)}`);
+          }
+        }
+
+        // Take coverage before other collectors touch the CSS domain.
+        if (ctx.cdp && ctx.shared.coverage?.started) {
+          try {
+            ctx.shared.coverage.js = (await ctx.cdp.send<any>('Profiler.takePreciseCoverage')).result;
+            ctx.shared.coverage.css = (await ctx.cdp.send<any>('CSS.takeCoverageDelta')).coverage;
+            await ctx.cdp.send('Profiler.stopPreciseCoverage').catch(() => {});
+            await ctx.cdp.send('CSS.stopRuleUsageTracking').catch(() => {});
+          } catch (e) {
+            warnings.push(`Coverage capture: ${errMsg(e)}`);
+          }
+        }
       } catch (e) {
         warnings.push(`Content Script: ${errMsg(e)}`);
         setStep('frames', 'error', errMsg(e));
@@ -286,6 +342,7 @@ function contentOptions(ctx: JobContext, selected: Area[]) {
     styles: has('styles'),
     styleSheets: has('styles') && !ctx.cdp,
     a11y: has('accessibility') && !ctx.cdp,
+    application: has('application'),
     computedStylesMode: ctx.settings.computedStylesMode,
     computedStylesLimit: ctx.settings.computedStylesLimit,
     computedStylesDiffOnly: ctx.settings.computedStylesDiffOnly,
