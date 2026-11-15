@@ -1,0 +1,72 @@
+name: Release
+
+# Builds the Chrome and Firefox extension ZIPs and publishes them as a GitHub
+# Release named after the version in package.json.
+#
+# Two ways to start it:
+#   - Actions -> Release -> "Run workflow" (creates the tag v<version> itself)
+#   - push a tag like v1.0.0 (it has to match the version in package.json)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run compile
+
+      - name: Read the version
+        id: version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v$version"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build the extension ZIPs
+        run: npm run zip
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          cd .output
+          sha256sum "f12-collector-$VERSION-chrome.zip" "f12-collector-$VERSION-firefox.zip" > SHA256SUMS.txt
+          cat > notes.md <<NOTES
+          **f12-collector-$VERSION-chrome.zip** — Chrome, Edge, Brave: unpack it, open \`chrome://extensions\`, turn on developer mode and choose **Load unpacked**.
+
+          **f12-collector-$VERSION-firefox.zip** — Firefox 140+: open \`about:debugging#/runtime/this-firefox\` and choose **Load Temporary Add-on**.
+
+          Everything runs locally; see the README for the full installation steps.
+          NOTES
+          gh release create "$TAG" \
+            "f12-collector-$VERSION-chrome.zip" \
+            "f12-collector-$VERSION-firefox.zip" \
+            SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "F12 Collector $TAG" --notes-file notes.md
