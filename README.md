@@ -50,7 +50,9 @@
 > reports *"Manifest file is missing or unreadable"*. Always load a folder that directly contains a
 > `manifest.json`.
 
-**Without Node.js (recommended):** download the repository as a ZIP and unpack it. The ready-to-use
+**Without Node.js (recommended):** download the ZIP for your browser from the
+[latest release](https://github.com/aquaxs1/F12-Collector/releases/latest) and unpack it – the unpacked
+folder is the one to load. Alternatively download the repository as a ZIP; the same ready-to-use
 extensions are in
 - `prebuilt/chrome` – for Chrome, Edge, Brave …
 - `prebuilt/firefox` – for Firefox
